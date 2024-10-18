@@ -49,6 +49,13 @@ class Client:
     async def __aexit__(self, exc_type, exc_value, traceback) -> None:
         await self.session.close()
         
+    async def make_request(self, method: str = 'GET', url: str = None, headers: dict = None, json: dict = None):
+        async with self.session.request(method=method, url=url, headers=headers, json=json) as response:
+            if response.status in [200, 201]:
+                return await response.json()
+            
+            raise RuntimeError(f'{method} request failed with status {response.status}')
+
     async def get_decimals(self, token_name: str = None, token_address: str = None) -> int:
         contract_address = token_address if token_address else TOKENS_PER_CHAIN[self.network.name][token_name]
         contract = self.get_contract(contract_address)
