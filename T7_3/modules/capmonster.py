@@ -6,8 +6,12 @@ from settings import CAPMONSTER_API_KEY
 
 
 class CapMonsterSolver:
-    def __init__(self, client: Client) -> None:
+    def __init__(self, client: Client, task_type: str, website_url: str, website_key: str) -> None:
         self.client: Client = client
+        self.task_type = task_type
+        self.website_url = website_url
+        self.website_key = website_key
+
 
     async def create_task_for_captcha(self):
         url = 'https://api.capmonster.cloud/createTask'
@@ -15,9 +19,9 @@ class CapMonsterSolver:
         payload = {
             "clientKey": CAPMONSTER_API_KEY,
             "task": {
-                "type": "RecaptchaV2Task",
-                "websiteURL": "https://faucet.movementlabs.xyz/",
-                "websiteKey": "6LdPgxMqAAAAAByFdD5V8PiPKYZS4mSZWUUcZW6B",
+                "type": self.task_type,
+                "websiteURL": self.website_url,
+                "websiteKey": self.website_key,
                 "proxyType": "http",
                 "proxyAddress": self.client.proxy_address,
                 "proxyPort": self.client.proxy_port,

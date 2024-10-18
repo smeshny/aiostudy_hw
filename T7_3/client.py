@@ -56,7 +56,6 @@ class Client:
         
     async def make_request(self, method: str = 'GET', url: str = None, headers: dict = None, json: dict = None):
         async with self.session.request(method=method, url=url, headers=headers, json=json) as response:
-            
             if response.status in [200, 201]:
                 if response.content_type == 'text/plain':
                     text_data = await response.text()
