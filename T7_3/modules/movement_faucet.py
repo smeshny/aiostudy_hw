@@ -56,9 +56,12 @@ class MovementFaucet:
             response = await self.client.make_request(
                 method='POST', url=self.faucet_requset_url, headers=headers, json=payload
                 )
-            if response['result']:
+            
+            if 'result' in response:
                 print(f"Successfully received tokens! tx: {response['result']}")
                 return response['result']
+            elif 'error' in response:
+                raise RuntimeError(f"Error on faucet: {response['error']['message']}")
             total_time += 5
             await asyncio.sleep(5)
             if total_time >= timeout:
