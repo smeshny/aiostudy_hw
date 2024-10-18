@@ -1,5 +1,6 @@
 import asyncio
 import random
+import json as python_json
 
 from aiohttp import ClientSession, TCPConnector
 from aiohttp_socks import ProxyConnector
@@ -38,6 +39,10 @@ class Client:
         self.private_key = private_key if private_key else self.w3.eth.account.create().key.hex()
         self.address = AsyncWeb3.to_checksum_address(self.w3.eth.account.from_key(self.private_key).address)
         self.acc_info = account_name, self.address
+        self.user_agent: str = self.get_user_agent()
+        self.proxy_login, self.proxy_password, self.proxy_address, self.proxy_port = (
+            self.get_proxy_credentials(self.proxy_init) if self.proxy_init else (None, None, None, None)
+        )
         
     async def __aenter__(self):
         self.session: ClientSession = ClientSession(
@@ -51,10 +56,31 @@ class Client:
         
     async def make_request(self, method: str = 'GET', url: str = None, headers: dict = None, json: dict = None):
         async with self.session.request(method=method, url=url, headers=headers, json=json) as response:
-            if response.status in [200, 201]:
-                return await response.json()
             
+            if response.status in [200, 201]:
+                if response.content_type == 'text/plain':
+                    text_data = await response.text()
+                    data = python_json.loads(text_data)
+                else:
+                    data = await response.json()
+                return data
+
             raise RuntimeError(f'{method} request failed with status {response.status}')
+
+    @staticmethod
+    def get_user_agent() -> str:
+        random_version = f"{random.uniform(520, 540):.2f}"
+        return (
+		    f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/{random_version} (KHTML, like Gecko)'
+            f' Chrome/126.0.0.0 Safari/{random_version} Edg/126.0.0.0'
+        )
+        
+    @staticmethod
+    def get_proxy_credentials(proxy: str) -> tuple[str, str, str, str]:
+        proxy_parts = proxy.split('@')
+        proxy_login, proxy_password = proxy_parts[0].split(':')
+        proxy_address, proxy_port = proxy_parts[1].split(':')
+        return proxy_login, proxy_password, proxy_address, proxy_port
 
     async def get_decimals(self, token_name: str = None, token_address: str = None) -> int:
         contract_address = token_address if token_address else TOKENS_PER_CHAIN[self.network.name][token_name]

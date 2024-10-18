@@ -11,6 +11,7 @@
 import asyncio
 
 from client import Client
+from modules.capmonster import CapMonsterSolver
 from settings import NETWORK_TO_WORK, PRIVATE_KEY, TO_ADDRESS, VALUE_TO_SEND, TOKEN_TO_SEND, \
                      PROXY       
 
@@ -22,6 +23,12 @@ async def main() -> None:
         private_key=PRIVATE_KEY,
         proxy=PROXY,
     )
+    
+    async with client:
+        capmonster_solver = CapMonsterSolver(client)
+        captcha_id = await capmonster_solver.create_task_for_captcha()
+        captcha_solution = await capmonster_solver.get_captcha_solution(captcha_id)
+        print(captcha_solution)
 
 
 
