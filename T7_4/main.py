@@ -8,11 +8,21 @@
 import asyncio
 
 from client import Client
-from modules.movement_faucet import MovementFaucet
-from settings import NETWORK_TO_WORK, PRIVATE_KEY, PROXY       
+from modules.uniswap import Uniswap
+from settings import NETWORK_TO_WORK, PRIVATE_KEY, PROXY
+from config import TOKENS_PER_CHAIN, CONTRACTS_PER_CHAIN
 
 
 async def main() -> None:
+    """
+    Sign an ERC20 swap permit for Uniswap and get the signature.
+    """
+    
+    TOKEN_TO_SPEND = TOKENS_PER_CHAIN[NETWORK_TO_WORK.name]['USDC.e']
+    ROUTER_ADDRESS = CONTRACTS_PER_CHAIN[NETWORK_TO_WORK.name]['UNISWAP_UNIVERSAL_ROUTER_4']
+    VALUE_TO_SEND = 10
+    
+    
     client = Client(
         account_name="aiostudy", 
         network=NETWORK_TO_WORK,
@@ -20,9 +30,14 @@ async def main() -> None:
         proxy=PROXY,
     )
     async with client:
-        movement_faucet = MovementFaucet(client=client)
-        await movement_faucet.get_movement_tokens()
-
+        uniswap = Uniswap(client=client)
+        
+        signed_message = await uniswap.sign_erc20_swap_permit(
+            erc20_address_to_spend=TOKEN_TO_SPEND,
+            spender_contract_address=ROUTER_ADDRESS,
+            amount_ether=VALUE_TO_SEND,
+        )
+        print(signed_message)
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -2,11 +2,9 @@ import asyncio
 import time
 
 from eth_account.datastructures import SignedMessage
-from eth_account.messages import encode_defunct, encode_typed_data, SignableMessage
 
 from client import Client
 from settings import UNLIMITED_APPROVE
-
 
 
 class Uniswap:
@@ -75,5 +73,13 @@ class Uniswap:
         signed_message: SignedMessage = await self.client.custom_sign_message(
             data_to_sign=permit_data, eip_712_data=True
             )
-
-        return signed_message
+        
+        if await self.client.verify_signature(
+            data_to_sign=permit_data, 
+            signed_message=signed_message, 
+            eip_712_data=True
+            ):
+            print("Uniswap approval signature verification passed")
+            return signed_message
+        else:
+            raise RuntimeError("Signature verification failed")

@@ -8,7 +8,7 @@ from aiohttp_socks import ProxyConnector
 from web3 import AsyncHTTPProvider, AsyncWeb3
 from web3.contract import AsyncContract
 from web3.exceptions import TransactionNotFound
-from eth_typing import HexStr
+from eth_typing import HexStr, ChecksumAddress
 from eth_account.messages import encode_defunct, encode_typed_data, SignableMessage
 from eth_account.datastructures import SignedMessage
 
@@ -329,3 +329,18 @@ class Client:
             text_encoded: SignableMessage = encode_defunct(text=data_to_sign)
 
         return self.w3.eth.account.sign_message(text_encoded, private_key=self.private_key)
+
+    async def verify_signature(
+        self, data_to_sign: dict, signed_message: SignedMessage, eip_712_data: bool = False
+        ) -> bool:
+
+        if eip_712_data:
+            signable_message: SignableMessage = encode_typed_data(full_message=data_to_sign)
+        else:
+            signable_message: SignableMessage = encode_defunct(text=data_to_sign)
+
+        recovered_address: ChecksumAddress = self.w3.eth.account.recover_message(
+            signable_message, signature=signed_message.signature
+        )
+
+        return recovered_address == self.address
