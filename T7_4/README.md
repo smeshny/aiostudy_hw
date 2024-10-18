@@ -1,33 +1,46 @@
-# Configuration
+# Uniswap ERC20 Swap Permit Signer
 
-1. **Environment Variables:**
+This project shows how to sign a typed message for an ERC20 swap permit on Uniswap.
 
-   - `PRIVATE_KEY`: Your private key for the EVM wallet.
-   - `PROXY`: Proxy settings if required.
+## Prerequisites
 
-   Set these variables in a `.env` file or directly in your environment.
+- Python 3.10+
+- Install required packages
 
-2. **CapMonster Configuration:**
+## Setup
 
-   Ensure you have a CapMonster account and have configured it to solve reCaptchaV2 challenges.
+1. **Clone the repository:**
+
+   ```bash
+   git clone <repository-url>
+   cd aiostudy_hw/T7_4
+   ```
+
+2. **Install dependencies:**
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Configuration:**
+
+   - Set `NETWORK_TO_WORK`, `PRIVATE_KEY`, and `PROXY` in `settings.py`.
+   - Define `TOKENS_PER_CHAIN` and `CONTRACTS_PER_CHAIN` in `config.py`.
 
 ## Usage
 
-To run the script, execute the following command:
+Run the script:
 
 ```bash
-python aiostudy_hw/T7_3/main.py
+python main.py
 ```
 
-## Project Structure
+## Description
 
-- `aiostudy_hw/T7_3/main.py`: Main script to run the project.
-- `client.py`: Handles client connections.
-- `modules/movement_faucet.py`: Contains logic for interacting with the Movement faucet.
-- `modules/capmonster.py`: Contains logic for CapMonster.
-- `settings.py`: Configuration settings for the project.
+- Initializes a client and connects to Uniswap.
+- Signs a swap permit for an ERC20 token and prints the signature.
 
-## Troubleshooting
+## Notes
 
-- **Server Error:** If you encounter a server error, it may be an issue with the faucet. Try again later.
-- **Captcha Issues:** Ensure your CapMonster account is active and correctly configured.
+- Ensure private key and network settings are correct.
+- Designed for non-native tokens.
