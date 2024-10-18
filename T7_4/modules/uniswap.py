@@ -64,11 +64,11 @@ class Uniswap:
                 "details": {
                     "token": erc20_address_to_spend,
                     "amount": amount, 
-                    "expiration": 60 * 60 * 24 * 30, #30 days https://blog.uniswap.org/permit2-integration-guide
+                    "expiration": int(time.time() + 60 * 60 * 24 * 30), #30 days https://blog.uniswap.org/permit2-integration-guide
                     "nonce": nonce, #nonce is the next valid nonce for the token and spender
                 },
                 "spender": spender_contract_address,
-                "sigDeadline": 60 * 60 * 30, #30 minutes https://blog.uniswap.org/permit2-integration-guide
+                "sigDeadline": int(time.time() + 60 * 60 * 30), #30 minutes https://blog.uniswap.org/permit2-integration-guide
             },
         }
 
