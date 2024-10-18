@@ -12,8 +12,7 @@ import asyncio
 
 from client import Client
 from modules.movement_faucet import MovementFaucet
-from settings import NETWORK_TO_WORK, PRIVATE_KEY, TO_ADDRESS, VALUE_TO_SEND, TOKEN_TO_SEND, \
-                     PROXY       
+from settings import NETWORK_TO_WORK, PRIVATE_KEY, PROXY       
 
 
 async def main() -> None:
