@@ -9,6 +9,8 @@ from web3 import AsyncHTTPProvider, AsyncWeb3
 from web3.contract import AsyncContract
 from web3.exceptions import TransactionNotFound
 from eth_typing import HexStr
+from eth_account.messages import encode_defunct, encode_typed_data
+from eth_account.datastructures import SignedMessage
 
 from networks import Network
 from interfaces import BlockchainException
@@ -320,3 +322,10 @@ class Client:
         except Exception as error:
             print(f'{error}')
             
+    async def custom_sign_message(self, data_to_sign, eip_712_data: bool = False) -> SignedMessage:
+        if eip_712_data:
+            text_encoded = encode_typed_data(full_message=data_to_sign)
+        else:
+            text_encoded = encode_defunct(text=data_to_sign)
+
+        return self.w3.eth.account.sign_message(text_encoded, private_key=self.private_key)
