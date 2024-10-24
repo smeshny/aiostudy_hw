@@ -1,19 +1,27 @@
-# Задание: L2pass минтер
+# Задание: ODOS API Swap
 
-# Настало время применить все наши навыки, ради нашей главной цели - минта джипега.
-
-# Сделайте минт NFT на сайте https://l2pass.com/mint в сети Arbitrum. 
-# Контракт простенький, но учитывайте изменении цены владельцем коллекции - получайте эту цену динамично
+# Реализовать работу агрегатора ODOS через API интерфейс. 
+# Для этой задачи вам необходимо сначала создать функцию отправки запросов, 
+# которая позволит взаимодействовать с API. 
+# Следующим шагом сделайте получение всех необходимых данных через методы Quote и Assemble. 
+# Когда получите данные с этих методов, приступайте к созданию транзакции и ее отправке
 
 # Предусмотрите следующие настройки:
 
-# Сеть минта NFTКоличество NFT к минту
+# Входящую и выходящую монету
+# Кол-во входящей монеты, которое мы хотим свапнутьSlippage в %
 
-# Примечание 1. Не ограничивайтесь только одной сетью, попробуйте реализовать сразу несколько поддерживаемых сетей
+# Сайт агрегатораДокументация Примечание 1. Сделайте простые свапы нативного токена и обратно для токенов USDT, USDC.
 
-# Примечание 2. Предусмотрите возможность минтить сразу несколько NFT в одной транзации  
-# Подсказка 1. Коммисию за минт можно получить с помощью разных функций, 
-# но обычно это что-то из разряда: mintFee, Fee, mintPrice, Price
+# Примечание 2. Добавьте возможность указывать свой собственный Slippage для свапов
+
+# Примечание 3. Реализуйте поддержку BNB Chain, Arbitrum, Optimism, Polygon блокчейнов
+
+# Подсказка 1. При свапах нативных монет, агрегаторы требуют использовать адреса-маски
+
+# Подсказка 2. Не забывайте делать Approve перед свапами НЕ из нативных монет
+
+# Подсказка 3. Value это не просто красивое слово
 
 import asyncio
 
@@ -21,14 +29,18 @@ from client import Client
 from modules.l2_pass import L2Pass
 from settings import NETWORK_TO_WORK, PRIVATE_KEY, PROXY
 from config import TOKENS_PER_CHAIN, CONTRACTS_PER_CHAIN
+from modules.dex.odos import Odos
 
 
 async def main() -> None:
     """
-    Mint L2PASS nft.
+    ODOS Swap
     """
     
-    L2_PASS_NFT_QUANTITY: int = 2
+    FROM_TOKEN: str = 'ETH'
+    TO_TOKEN: str = 'USDT'
+    FROM_AMOUNT: float = 1
+    SLIPPAGE: float = 1 # 0.3 = 0.3%
     
     client = Client(
         account_name="aiostudy", 
@@ -38,8 +50,13 @@ async def main() -> None:
     )
     
     async with client:
-        l2_pass = L2Pass(client=client)
-        await l2_pass.mint(nft_quantity=L2_PASS_NFT_QUANTITY)
+        odos = Odos(client=client)
+        await odos.swap(
+            input_token=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][FROM_TOKEN], 
+            output_token=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][TO_TOKEN], 
+            input_amount=FROM_AMOUNT, 
+            slippage=SLIPPAGE
+        )
 
 if __name__ == "__main__":
     asyncio.run(main())

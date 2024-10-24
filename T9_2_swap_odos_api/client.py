@@ -66,7 +66,7 @@ class Client:
                     data = await response.json()
                 return data
 
-            raise RuntimeError(f'{method} request failed with status {response.status}')
+            raise RuntimeError(f'{method} request failed with status {response.status}: {await response.text()}')
 
     @staticmethod
     def get_user_agent() -> str:
