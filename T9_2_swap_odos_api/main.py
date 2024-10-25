@@ -9,9 +9,12 @@
 # Предусмотрите следующие настройки:
 
 # Входящую и выходящую монету
-# Кол-во входящей монеты, которое мы хотим свапнутьSlippage в %
+# Кол-во входящей монеты, которое мы хотим свапнуть
+# Slippage в %
 
-# Сайт агрегатораДокументация Примечание 1. Сделайте простые свапы нативного токена и обратно для токенов USDT, USDC.
+# Сайт агрегатора
+# Документация 
+# Примечание 1. Сделайте простые свапы нативного токена и обратно для токенов USDT, USDC.
 
 # Примечание 2. Добавьте возможность указывать свой собственный Slippage для свапов
 
@@ -26,9 +29,8 @@
 import asyncio
 
 from client import Client
-from modules.l2_pass import L2Pass
 from settings import NETWORK_TO_WORK, PRIVATE_KEY, PROXY
-from config import TOKENS_PER_CHAIN, CONTRACTS_PER_CHAIN
+from config import TOKENS_PER_CHAIN
 from modules.dex.odos import Odos
 
 
@@ -37,9 +39,9 @@ async def main() -> None:
     ODOS Swap
     """
     
-    FROM_TOKEN: str = 'ETH'
-    TO_TOKEN: str = 'USDT'
-    FROM_AMOUNT: float = 1
+    FROM_TOKEN: str = 'USDT' 
+    TO_TOKEN: str = 'ETH'
+    FROM_AMOUNT: float = 4.231375
     SLIPPAGE: float = 1 # 0.3 = 0.3%
     
     client = Client(
@@ -53,7 +55,9 @@ async def main() -> None:
         odos = Odos(client=client)
         await odos.swap(
             input_token=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][FROM_TOKEN], 
+            input_token_name=FROM_TOKEN,
             output_token=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][TO_TOKEN], 
+            output_token_name=TO_TOKEN,
             input_amount=FROM_AMOUNT, 
             slippage=SLIPPAGE
         )

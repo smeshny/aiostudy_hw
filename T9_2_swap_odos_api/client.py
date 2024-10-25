@@ -93,6 +93,10 @@ class Client:
         contract = self.get_contract(contract_address)
         return await contract.functions.balanceOf(self.address).call()
     
+    async def get_token_name(self, token_address: str) -> str:
+        contract = self.get_contract(token_address)
+        return await contract.functions.symbol().call()
+
     def get_contract(self, contract_address: str, abi: dict = ERC20_ABI) -> AsyncContract:
         return self.w3.eth.contract(
             address=AsyncWeb3.to_checksum_address(contract_address),
@@ -114,6 +118,15 @@ class Client:
         }[decimals]
 
         return self.w3.to_wei(number=number, unit=unit_name)
+    
+    def from_wei(self, number: int | str, decimals: int = 18) -> int:
+
+        unit_name = {
+            18: 'ether',
+            6: 'mwei'
+        }[decimals]
+
+        return self.w3.from_wei(number=int(number), unit=unit_name)
 
     async def check_for_approved(
             self, token_address: str, spender_address: str, amount_in_wei: int, 
