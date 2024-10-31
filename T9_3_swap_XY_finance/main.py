@@ -23,7 +23,7 @@ import asyncio
 from client import Client
 from settings import NETWORK_TO_WORK, PRIVATE_KEY, PROXY
 from config import TOKENS_PER_CHAIN
-from modules.dex.odos import Odos
+from modules.dex.xy_finance import XYfinance
 
 
 async def main() -> None:
@@ -33,7 +33,7 @@ async def main() -> None:
     
     FROM_TOKEN: str = 'USDT' 
     TO_TOKEN: str = 'ETH'
-    FROM_AMOUNT: float = 4.231375
+    FROM_AMOUNT: float = 1.02017
     SLIPPAGE: float = 1 # 0.3 = 0.3%
     
     client = Client(
@@ -44,15 +44,15 @@ async def main() -> None:
     )
     
     async with client:
-        # odos = Odos(client=client)
-        # await odos.swap(
-        #     input_token=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][FROM_TOKEN], 
-        #     input_token_name=FROM_TOKEN,
-        #     output_token=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][TO_TOKEN], 
-        #     output_token_name=TO_TOKEN,
-        #     input_amount=FROM_AMOUNT, 
-        #     slippage=SLIPPAGE
-        # )
+        xy_finance = XYfinance(client=client)
+        await xy_finance.swap(
+            input_token=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][FROM_TOKEN], 
+            input_token_name=FROM_TOKEN,
+            output_token=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][TO_TOKEN], 
+            output_token_name=TO_TOKEN,
+            input_amount=FROM_AMOUNT, 
+            slippage=SLIPPAGE
+        )
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -56,8 +56,9 @@ class Client:
     async def __aexit__(self, exc_type, exc_value, traceback) -> None:
         await self.session.close()
         
-    async def make_request(self, method: str = 'GET', url: str = None, headers: dict = None, json: dict = None):
-        async with self.session.request(method=method, url=url, headers=headers, json=json) as response:
+    async def make_request(self, method: str = 'GET', url: str = None, headers: dict = None, 
+                           json: dict = None, params: dict = None):
+        async with self.session.request(method=method, url=url, headers=headers, json=json, params=params) as response:
             if response.status in [200, 201]:
                 if response.content_type == 'text/plain':
                     text_data = await response.text()
