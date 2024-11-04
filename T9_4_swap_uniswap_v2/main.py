@@ -21,17 +21,17 @@ import asyncio
 from client import Client
 from settings import NETWORK_TO_WORK, PRIVATE_KEY, PROXY
 from config import TOKENS_PER_CHAIN
-from modules.dex.xy_finance import XYfinance
+from modules.dex.uniswap_v2 import UniswapV2
 
 
 async def main() -> None:
     """
-    XY.finance Swap
+    Uniswap V2 Swap
     """
     
     FROM_TOKEN: str = 'ETH' 
     TO_TOKEN: str = 'USDT'
-    FROM_AMOUNT: float = 0.00001
+    FROM_AMOUNT: float = 0.001 
     SLIPPAGE: float = 1 # 0.3 = 0.3%
     
     client = Client(
@@ -42,8 +42,8 @@ async def main() -> None:
     )
     
     async with client:
-        xy_finance = XYfinance(client=client)
-        await xy_finance.swap(
+        uniswap_v2 = UniswapV2(client=client)
+        await uniswap_v2.swap(
             input_token=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][FROM_TOKEN], 
             input_token_name=FROM_TOKEN,
             output_token=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][TO_TOKEN], 

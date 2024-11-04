@@ -1,4 +1,5 @@
 import asyncio
+import time
 
 from client import Client
 from config import TOKENS_PER_CHAIN, CONTRACTS_PER_CHAIN, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_ROUTER_ABI
@@ -14,14 +15,14 @@ class UniswapV2:
         self.router_contract = self.client.get_contract(
             contract_address=self.router_address, abi=UNISWAP_V2_ROUTER_ABI
             )
-        self.factory_contract = self.client.get_contract(
-            contract_address=self.factory_address, abi=UNISWAP_V2_FACTORY_ABI
-            )
+        # self.factory_contract = self.client.get_contract(
+        #     contract_address=self.factory_address, abi=UNISWAP_V2_FACTORY_ABI
+        #     )
         self.external_price_provider = Odos(client=self.client)
     
-    async def get_pair_address(self, token_a: str, token_b: str) -> str:
-        pair_address = await self.factory_contract.functions.getPair(token_a, token_b).call()
-        return pair_address
+    # async def get_pair_address(self, token_a: str, token_b: str) -> str:
+    #     pair_address = await self.factory_contract.functions.getPair(token_a, token_b).call()
+    #     return pair_address
     
     async def get_min_amount_out(self, input_amount_wei: int, token_a: str, token_b: str, slippage: float) -> int:
         uniswap_v2_quote = await self.router_contract.functions.getAmountsOut(input_amount_wei, [token_a, token_b]).call()
@@ -34,6 +35,7 @@ class UniswapV2:
             )
         external_amount_out = int(external_quote['outAmounts'][0])
         difference_in_percentage = (external_amount_out - uniswap_v2_amount_out) / external_amount_out * 100
+        
         if difference_in_percentage > 0:
             print(f"ODOS quote is better than Uniswap V2 quote by {difference_in_percentage:.1f}%")
         else:
@@ -47,9 +49,50 @@ class UniswapV2:
         decimals_input_token = await self.client.get_decimals(token_address=input_token)
         input_amount_wei = self.client.to_wei(input_amount, decimals=decimals_input_token)
 
-        min_amount_out = await self.get_min_amount_out(input_amount_wei, input_token, output_token, slippage)
-
-        pool_pair_address = await self.get_pair_address(input_token, output_token)
+        min_amount_out_wei = await self.get_min_amount_out(input_amount_wei, input_token, output_token, slippage)
+    
+        decimals_output_token = await self.client.get_decimals(token_address=output_token)
+        min_amount_out_ether = self.client.from_wei(min_amount_out_wei, decimals=decimals_output_token)
         
-        print(f"Pool pair address: {pool_pair_address}")
-        print(f"Min amount out: {min_amount_out}")
+        if input_token_name == self.native_token:
+            swap_function = self.router_contract.functions.swapExactETHForTokens
+            value = input_amount_wei
+        elif output_token_name == self.native_token:
+            swap_function = self.router_contract.functions.swapExactTokensForETH
+            value = 0
+        else:
+            swap_function = self.router_contract.functions.swapExactTokensForTokens
+            value = 0
+
+        deadline = int(time.time() + 60 * 12)
+        
+        print(f"Start swap on Uniswap V2: {input_amount:.6f} {input_token_name} -> "
+              f"{min_amount_out_ether:.6f} {output_token_name}"
+        )
+        
+        if input_token_name != self.native_token:
+            await self.client.check_for_approved(
+                token_address=input_token, spender_address=self.router_address, amount_in_wei=input_amount_wei
+                )
+        
+        try:
+            tx_params = (await self.client.prepare_transaction()) | {
+                'value': value,
+            }
+            
+            transaction = await swap_function(
+                *([input_amount_wei] if input_token_name != self.native_token else []), 
+                min_amount_out_wei, 
+                [input_token, output_token], 
+                self.client.address, 
+                deadline
+                ).build_transaction(tx_params)
+            
+            return await self.client.send_transaction(transaction)
+        except Exception as error:
+            if 'TRANSFER_FROM_FAILED' in str(error):
+                raise RuntimeError(f"You don't have enough {input_token_name} for this swap")
+            if 'insufficient funds for transfer' in str(error):
+                raise RuntimeError(f"You don't have enough {self.native_token} for this swap")
+            else:
+                raise error
