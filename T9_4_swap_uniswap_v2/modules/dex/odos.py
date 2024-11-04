@@ -42,6 +42,46 @@ class Odos:
         
         return response['pathId']
     
+    async def get_external_quote(self, input_token: str, output_token: str, input_amount: int, slippage: int) -> dict:
+        native_token_address = TOKENS_PER_CHAIN[self.client.network.name][self.client.network.token]
+        
+        # if native token, set it to zero address for odos
+        if input_token == native_token_address:
+            input_token = ZERO_ADDRESS
+        if output_token == native_token_address:
+            output_token = ZERO_ADDRESS
+        
+        quote_url = self.base_url + 'quote/v2'
+        quote_request_body = {
+            "chainId": self.client.network.chain_id,
+            "inputTokens": [
+                {
+                    "tokenAddress": input_token,
+                    "amount": str(input_amount),
+                }
+            ],
+            "outputTokens": [
+                {
+                    "tokenAddress": output_token,
+                    "proportion": 1
+                }
+            ],
+            "slippageLimitPercent": slippage, # set your slippage limit percentage (1 = 1%)
+            "userAddr": self.client.address,
+            "referralCode": 0,
+            "disableRFQs": True,
+            "compact": True,
+        }
+        
+        response = await self.client.make_request(
+            method='POST',
+            url=quote_url,
+            headers={"Content-Type": "application/json"},
+            json=quote_request_body
+        )
+        
+        return response    
+
     async def assemble(self, path_id: str) -> dict:
         assemble_url = self.base_url + 'assemble'
         assemble_request_body = {
