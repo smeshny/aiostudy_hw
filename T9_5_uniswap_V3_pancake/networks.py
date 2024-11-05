@@ -172,7 +172,7 @@ Polygon_ZKEVM_RPC = Network(
 BSC_RPC = Network(
     name='BNB Chain',
     rpc=[
-        'https://binance.llamarpc.com',
+        'https://bsc-pokt.nodies.app',
     ],
     chain_id=56,
     eip1559_support=True,

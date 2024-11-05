@@ -24,17 +24,20 @@ import asyncio
 from client import Client
 from settings import NETWORK_TO_WORK, PRIVATE_KEY, PROXY
 from config import TOKENS_PER_CHAIN
-from modules.dex.uniswap_v2 import UniswapV2
+from modules.dex.pancakeswap import Pancakeswap
 
 
 async def main() -> None:
     """
-    Uniswap V2 Swap
+    Pancakeswap V3 (BNB Chain and Arbitrum)
+    Set FROM_AMOUNT = 0 if you want to swap all balance of ERC20 token
+    Please, remember that you can't swap all balance of native token!
+    You can't swap ETH->WETH or WETH->ETH, because it's not a swap, it's wrap or unwrap
     """
     
-    FROM_TOKEN: str = 'ETH' 
-    TO_TOKEN: str = 'USDT'
-    FROM_AMOUNT: float = 0.001 
+    FROM_TOKEN: str = 'USDT'
+    TO_TOKEN: str = 'ETH'
+    FROM_AMOUNT: float = 0 # Choose 0 if you want to swap all balance of ERC20 token
     SLIPPAGE: float = 1 # 0.3 = 0.3%
     
     client = Client(
@@ -45,8 +48,8 @@ async def main() -> None:
     )
     
     async with client:
-        uniswap_v2 = UniswapV2(client=client)
-        await uniswap_v2.swap(
+        pancakeswap = Pancakeswap(client=client)
+        await pancakeswap.swap(
             input_token=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][FROM_TOKEN], 
             input_token_name=FROM_TOKEN,
             output_token=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][TO_TOKEN], 
