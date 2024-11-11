@@ -40,7 +40,7 @@ ScrollRPC = Network(
         'https://scroll.drpc.org',
     ],
     chain_id=534352,
-    eip1559_support=False,
+    eip1559_support=True,
     token='ETH',
     explorer='https://scrollscan.com/'
 )
@@ -140,7 +140,7 @@ LineaRPC = Network(
         'https://rpc.linea.build'
     ],
     chain_id=59144,
-    eip1559_support=False,
+    eip1559_support=True,
     token='ETH',
     explorer='https://lineascan.build/'
 )
