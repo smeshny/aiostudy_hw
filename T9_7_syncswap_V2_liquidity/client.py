@@ -16,6 +16,7 @@ from networks import Network
 from interfaces import BlockchainException
 from config import ERC20_ABI, TOKENS_PER_CHAIN
 from settings import GAS_PRICE_MULTIPLIER, GAS_LIMIT_MULTIPLIER, UNLIMITED_APPROVE
+from custom_logger import logger
 
 
 class Client:
@@ -137,7 +138,7 @@ class Client:
             contract = self.get_contract(token_address)
             symbol = await contract.functions.symbol().call()
 
-            print(f"Check for approval {symbol}")
+            logger.info(f"Check for approval {symbol}")
 
             approved_amount_in_wei = await self.get_allowance(
                 token_address=token_address,
@@ -145,7 +146,7 @@ class Client:
             )
 
             if amount_in_wei <= approved_amount_in_wei:
-                print(f"Already approved")
+                logger.info(f"Already approved")
                 return False
 
             result = await self.make_approve(token_address, spender_address, amount_in_wei, unlimited_approve)
@@ -239,7 +240,7 @@ class Client:
                 status = receipts.get("status")
                 if status == 1:
                     message = f'Transaction was successful: {self.explorer}tx/{tx_hash}'
-                    print(message)
+                    logger.success(message)
                     return True
                 elif status is None:
                     await asyncio.sleep(poll_latency)
@@ -254,7 +255,7 @@ class Client:
             except Exception as error:
                 if 'Transaction failed' in str(error):
                     raise BlockchainException(f'Transaction failed: {self.explorer}tx/{tx_hash}')
-                print(f"Something went wrong. Error: {error}")
+                logger.error(f"Something went wrong. Error: {error}")
                 total_time += poll_latency
                 await asyncio.sleep(poll_latency)
                 
@@ -264,12 +265,12 @@ class Client:
         
         balance_wei = await self.w3.eth.get_balance(self.address)
         balance_in_eth = self.w3.from_wei(balance_wei, 'ether')
-        print(f'Your balance is: {balance_in_eth:.8f} {self.network.token}')
+        logger.info(f'Your balance is: {balance_in_eth:.8f} {self.network.token}')
         
         if balance_wei < amount_to_transfer_in_wei:
             raise Exception(f'You dont have enough {self.network.token} on your balance')
 
-        print(f'Start to transfer {self.network.token} to {self.network.name} address '
+        logger.info(f'Start to transfer {self.network.token} to {self.network.name} address '
               f'{to_address}: {amount_to_transfer_eth:.8f} {self.network.token}')
 
         try:
@@ -282,7 +283,7 @@ class Client:
             return await self.send_transaction(tx_params)
 
         except Exception as error:
-            print(f'{error}')
+            logger.error(f'{error}')
             
     async def transfer_erc20_token(
         self,
@@ -307,12 +308,12 @@ class Client:
         amount_to_transfer_ether = self.w3.from_wei(
             amount_to_transfer_in_wei, 'ether' if token_decimals == 18 else 'mwei'
             )
-        print(f'Your {token} balance in {self.network.name} is: {balance_in_ether:.2f} {token}')
+        logger.info(f'Your {token} balance in {self.network.name} is: {balance_in_ether:.2f} {token}')
         
         if balance_wei < amount_to_transfer_in_wei:
             raise Exception(f'You dont have enough {token} to transfer on your balance')
 
-        print(f'Start transfer {token} to {self.network.name} address '
+        logger.info(f'Start transfer {token} to {self.network.name} address '
               f'{to_address}: {amount_to_transfer_ether:.2f} {token}')
 
         await self.check_for_approved(
@@ -334,7 +335,7 @@ class Client:
             
             return await self.send_transaction(transaction)
         except Exception as error:
-            print(f'{error}')
+            logger.error(f'{error}')
             
     async def custom_sign_message(self, data_to_sign, eip_712_data: bool = False) -> SignedMessage:
         if eip_712_data:
