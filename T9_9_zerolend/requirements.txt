@@ -1,0 +1,6 @@
+aiohttp==3.10.10
+aiohttp_socks==0.9.0
+web3==7.3.0
+python-dotenv==1.0.1
+Brotli==1.1.0
+loguru==0.7.2
