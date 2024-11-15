@@ -33,7 +33,7 @@ import asyncio
 from client import Client
 from settings import NETWORK_TO_WORK, PRIVATE_KEY, PROXY
 from config import TOKENS_PER_CHAIN
-from modules.landings.layerbank import Layerbank
+from modules.landings.zerolend import Zerolend
 
 
 async def main() -> None:
@@ -42,7 +42,7 @@ async def main() -> None:
     """
     
     TOKEN: str = 'USDC'
-    AMOUNT: float = 2 # 0 if you want to deposit all your USDC
+    AMOUNT: float = 1 # 0 if you want to deposit all your USDC
     
     client = Client(
         account_name="aiostudy", 
@@ -52,8 +52,8 @@ async def main() -> None:
     )
     
     async with client:
-        layerbank = Layerbank(client=client)
-        await layerbank.deposit_usdc(
+        zerolend = Zerolend(client=client)
+        await zerolend.deposit_usdc(
             token_name=TOKEN,
             token_address=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][TOKEN],
             amount_to_deposit=AMOUNT,
@@ -61,7 +61,7 @@ async def main() -> None:
         
         await asyncio.sleep(15)
         
-        await layerbank.withdraw_usdc(
+        await zerolend.withdraw_usdc(
             token_to_withdraw=TOKEN,
         )
 
