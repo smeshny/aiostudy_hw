@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import networks
 
 
-NETWORK_TO_WORK: networks.Network = networks.zkSyncEraRPC #choose your network from networks.py
+NETWORK_TO_WORK: networks.Network = networks.ScrollRPC #choose your network from networks.py
 
 UNLIMITED_APPROVE = False # if True, the contract will be approved for spending unlimited amount of tokens
 
