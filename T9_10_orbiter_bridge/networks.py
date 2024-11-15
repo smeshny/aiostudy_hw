@@ -655,3 +655,9 @@ TaikoRPC = Network(
     token='ETH',
     explorer='https://taikoscan.io/'
 )
+
+def get_network_by_name(name: str) -> Network:
+    for obj in globals().values():
+        if isinstance(obj, Network) and obj.name == name:
+            return obj
+    raise ValueError(f"Network with name '{name}' not found.")

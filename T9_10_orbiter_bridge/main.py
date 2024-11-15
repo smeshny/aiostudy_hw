@@ -35,36 +35,38 @@ import asyncio
 from client import Client
 from settings import NETWORK_TO_WORK, PRIVATE_KEY, PROXY
 from config import TOKENS_PER_CHAIN
-from modules.landings.zerolend import Zerolend
+from networks import get_network_by_name
+from modules.bridges.orbiter import Orbiter
 
 
 async def main() -> None:
     """
-    Zerolend deposit/withdraw USDC on Linea network
+    Orbiter bridge
     """
     
-    TOKEN: str = 'USDC'
-    AMOUNT: float = 1 # 0 if you want to deposit all your USDC
+    SRC_TOKEN: str = 'ETH'
+    SRC_CHAIN: str = 'Arbitrum'
+    DST_TOKEN: str = 'ETH'
+    DST_CHAIN: str = 'Optimism'
+    AMOUNT: float = 0.002 
     
     client = Client(
         account_name="aiostudy", 
-        network=NETWORK_TO_WORK,
+        network=get_network_by_name(SRC_CHAIN),
         private_key=PRIVATE_KEY,
         proxy=PROXY,
     )
     
     async with client:
-        zerolend = Zerolend(client=client)
-        await zerolend.deposit_usdc(
-            token_name=TOKEN,
-            token_address=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][TOKEN],
-            amount_to_deposit=AMOUNT,
-        )
-        
-        await asyncio.sleep(15)
-        
-        await zerolend.withdraw_usdc(
-            token_to_withdraw=TOKEN,
+        orbiter = Orbiter(client=client)
+        await orbiter.bridge(
+            src_token_name=SRC_TOKEN,
+            src_token_address=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][SRC_TOKEN],
+            src_chain=get_network_by_name(SRC_CHAIN),
+            dst_token_name=DST_TOKEN,
+            dst_token_address=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][DST_TOKEN],
+            dst_chain=get_network_by_name(DST_CHAIN),
+            amount_to_bridge_ether=AMOUNT,
         )
 
 if __name__ == "__main__":
