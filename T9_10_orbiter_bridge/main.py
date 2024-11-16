@@ -48,7 +48,7 @@ async def main() -> None:
     SRC_CHAIN: str = 'Arbitrum'
     DST_TOKEN: str = 'ETH'
     DST_CHAIN: str = 'Optimism'
-    AMOUNT: float = 0.002 
+    AMOUNT: float = 0.00001 
     
     client = Client(
         account_name="aiostudy", 
@@ -61,10 +61,8 @@ async def main() -> None:
         orbiter = Orbiter(client=client)
         await orbiter.bridge(
             src_token_name=SRC_TOKEN,
-            src_token_address=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][SRC_TOKEN],
             src_chain=get_network_by_name(SRC_CHAIN),
             dst_token_name=DST_TOKEN,
-            dst_token_address=TOKENS_PER_CHAIN[NETWORK_TO_WORK.name][DST_TOKEN],
             dst_chain=get_network_by_name(DST_CHAIN),
             amount_to_bridge_ether=AMOUNT,
         )

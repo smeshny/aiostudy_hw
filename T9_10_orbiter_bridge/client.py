@@ -241,7 +241,7 @@ class Client:
                 if status == 1:
                     message = f'Transaction was successful: {self.explorer}tx/{tx_hash}'
                     logger.success(message)
-                    return True
+                    return True, tx_hash
                 elif status is None:
                     await asyncio.sleep(poll_latency)
                 else:
