@@ -33,8 +33,7 @@
 import asyncio
 
 from client import Client
-from settings import NETWORK_TO_WORK, PRIVATE_KEY, PROXY
-from config import TOKENS_PER_CHAIN
+from settings import PRIVATE_KEY, PROXY
 from networks import get_network_by_name
 from modules.bridges.orbiter import Orbiter
 
@@ -42,13 +41,16 @@ from modules.bridges.orbiter import Orbiter
 async def main() -> None:
     """
     Orbiter bridge
+    !CAUTION!
+    Do not try to bridge USDC or USDC.e tokens!
+    Orbiter bridge has autism for USDC and USDC.e tokens!
     """
     
     SRC_TOKEN: str = 'ETH'
     SRC_CHAIN: str = 'Arbitrum'
     DST_TOKEN: str = 'ETH'
     DST_CHAIN: str = 'Optimism'
-    AMOUNT: float = 0.00001 
+    AMOUNT: float = 0.002 
     
     client = Client(
         account_name="aiostudy", 

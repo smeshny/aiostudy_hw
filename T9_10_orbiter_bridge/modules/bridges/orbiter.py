@@ -35,7 +35,7 @@ class Orbiter:
         while time_spent < max_time_to_wait:
             try:
                 orbiter_tx_response = await self.client.make_request(method='GET', url=url)
-                if orbiter_tx_response.get("status") == "success":
+                if orbiter_tx_response.get("result"):
                     logger.success(f"Orbiter bridge transaction completed successfully!")
                     logger.success(f"{dst_chain.name} tx: "
                                 f"{dst_chain.explorer}tx/{orbiter_tx_response['result']['targetId']}")
@@ -49,17 +49,14 @@ class Orbiter:
                     raise error
             await asyncio.sleep(15)
             time_spent += 15
+            logger.warning(f"Waiting {max_time_to_wait}s. for processing transaction on {dst_chain.name}... "
+                           f"Time spent: {time_spent}s.")
         raise RuntimeError(f"Orbiter bridge transaction {src_chain.explorer}tx/{tx_hash} from {src_chain.name} to "
                            f"{dst_chain.name} is not recieved after {max_time_to_wait} seconds")
 
     async def bridge(
-        self, 
-        src_token_name: str, 
-        src_chain: str,
-        dst_token_name: str, 
-        dst_chain: str,
-        amount_to_bridge_ether: float
-        ):
+        self, src_token_name: str, src_chain: str,dst_token_name: str, dst_chain: str, amount_to_bridge_ether: float
+        ) -> None:
         bridge_data = await self.get_bridge_data(src_token_name, src_chain, dst_token_name, dst_chain)
         
         if bridge_data.get("state") != "available":
@@ -73,7 +70,7 @@ class Orbiter:
         if float(bridge_data.get("minAmt")) > amount_to_bridge_ether:
             raise RuntimeError(f"Orbiter bridge min amount is greater than the amount to bridge: "
                                f"{bridge_data.get('minAmt')} > {amount_to_bridge_ether:.6f}")
-        
+
         bridge_fee_percent = float(bridge_data.get("tradeFee"))
         bridge_fee_amount = amount_to_bridge_ether * bridge_fee_percent
         bidge_withholding_fee_ether = float(bridge_data.get("withholdingFee"))
@@ -84,6 +81,15 @@ class Orbiter:
         logger.info(f"Total fee for this direction: {total_fee_ether:.6f} {src_token_name}")
 
         src_token_address = TOKENS_PER_CHAIN[src_chain.name][src_token_name]
+        
+        if src_token_name != self.native_token:
+            if (bridge_data.get("srcToken")).lower() != src_token_address.lower():
+                raise RuntimeError(
+                    f"Orbiter bridge src token is not equal to the src token you want to bridge! "
+                    f"You want to bridge {src_token_name}: {src_token_address}, "
+                    f"but Orbiter want to bridge token {bridge_data.get('srcToken')}"
+                )
+
         src_token_decimals = await self.client.get_decimals(token_address=src_token_address)
         amount_to_bridge_wei = self.client.to_wei(amount_to_bridge_ether, src_token_decimals)
         
@@ -107,4 +113,9 @@ class Orbiter:
             _, tx_hash = (await self.client.send_transaction(transaction))
             await self.get_transaction_status_from_orbiter(src_chain, dst_chain, tx_hash)
         except Exception as error:
-            logger.error(f'{error}')
+            if 'insufficient funds for transfer' in str(error):
+                logger.error(f"You don't have enough {src_token_name} for this transaction")
+            if 'transfer amount exceeds balance' in str(error):
+                logger.error(f"You don't have enough {src_token_name} for this transaction")
+            else:
+                raise error
