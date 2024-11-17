@@ -39,42 +39,29 @@ import asyncio
 from client import Client
 from settings import PRIVATE_KEY, PROXY
 from networks import get_network_by_name
-from modules.bridges.stargate import StargateV2
+from modules.claim_simulation import ClaimSimulation
 
 
 async def main() -> None:
     """
-    Stargate V2 TAXI/BUS bridge (Arbitrum and Optimism chains only)
-    !CAUTION!
-    On stargate frontend they use Stargate V1 contracts, not V2.
+    Calim simulation on DropManager contract
+    This script will claim all available tokens from DropManager contract.
+    You can specify amount of tokens to claim per each transaction.
     """
     
-    SRC_TOKEN: str = 'USDC' # ETH -> ETH, USDC -> USDC
-    SRC_CHAIN: str = 'Optimism'
-    DST_TOKEN: str = 'USDC' # ETH -> ETH, USDC -> USDC
-    DST_CHAIN: str = 'Arbitrum'
-    AMOUNT: float = 0.199994
-    SLIPPAGE: float = 0.5 # 0.5 = 0.5%, 2 = 2%
-    BRIDGE_MODE: str = 'TAXI' # "TAXI" - fast and expensive, "BUS" - slow and cheap
+    AMOUNT_TO_CLAIM_PER_TRANSACTION: float = 4.20 # amount of tokens to claim per each transaction
+    NETWORK_TO_WORK: str = 'Arbitrum'
     
     client = Client(
         account_name="aiostudy", 
-        network=get_network_by_name(SRC_CHAIN),
+        network=get_network_by_name(NETWORK_TO_WORK),
         private_key=PRIVATE_KEY,
         proxy=PROXY,
     )
     
     async with client:
-        stargate_v2 = StargateV2(client=client)
-        await stargate_v2.bridge(
-            src_token_name=SRC_TOKEN,
-            src_chain=get_network_by_name(SRC_CHAIN),
-            dst_token_name=DST_TOKEN,
-            dst_chain=get_network_by_name(DST_CHAIN),
-            amount_to_bridge_ether=AMOUNT,
-            bridge_mode=BRIDGE_MODE, 
-            slippage=SLIPPAGE
-        )
+        claim_simulation = ClaimSimulation(client=client)
+        await claim_simulation.claim_all_tokens(amount_to_claim_per_transaction_ether=AMOUNT_TO_CLAIM_PER_TRANSACTION)
 
 if __name__ == "__main__":
     asyncio.run(main())
