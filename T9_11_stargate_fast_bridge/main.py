@@ -40,7 +40,9 @@ from modules.bridges.orbiter import Orbiter
 
 async def main() -> None:
     """
-    Stargate fast bridge
+    Stargate V2 TAXI/BUS bridge (Arbitrum and Optimism chains only)
+    !CAUTION!
+    On stargate frontend they use Stargate V1 contracts, not V2.
     """
     
     SRC_TOKEN: str = 'ETH'
@@ -48,6 +50,7 @@ async def main() -> None:
     DST_TOKEN: str = 'ETH'
     DST_CHAIN: str = 'Optimism'
     AMOUNT: float = 0.002 
+    BRIDGE_MODE: str = 'TAXI' # "TAXI" - fast and expensive, "BUS" - slow and cheap
     
     client = Client(
         account_name="aiostudy", 
