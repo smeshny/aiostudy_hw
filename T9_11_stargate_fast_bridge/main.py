@@ -35,7 +35,7 @@ import asyncio
 from client import Client
 from settings import PRIVATE_KEY, PROXY
 from networks import get_network_by_name
-from modules.bridges.orbiter import Orbiter
+from modules.bridges.stargate import StargateV2
 
 
 async def main() -> None:
@@ -45,11 +45,12 @@ async def main() -> None:
     On stargate frontend they use Stargate V1 contracts, not V2.
     """
     
-    SRC_TOKEN: str = 'ETH'
-    SRC_CHAIN: str = 'Arbitrum'
-    DST_TOKEN: str = 'ETH'
-    DST_CHAIN: str = 'Optimism'
-    AMOUNT: float = 0.002 
+    SRC_TOKEN: str = 'ETH' # ETH -> ETH, USDC -> USDC
+    SRC_CHAIN: str = 'Optimism'
+    DST_TOKEN: str = 'ETH' # ETH -> ETH, USDC -> USDC
+    DST_CHAIN: str = 'Arbitrum'
+    AMOUNT: float = 0.001
+    SLIPPAGE: float = 0.5 # 0.5 = 0.5%, 2 = 2%
     BRIDGE_MODE: str = 'TAXI' # "TAXI" - fast and expensive, "BUS" - slow and cheap
     
     client = Client(
@@ -60,13 +61,15 @@ async def main() -> None:
     )
     
     async with client:
-        orbiter = Orbiter(client=client)
-        await orbiter.bridge(
+        stargate_v2 = StargateV2(client=client)
+        await stargate_v2.bridge(
             src_token_name=SRC_TOKEN,
             src_chain=get_network_by_name(SRC_CHAIN),
             dst_token_name=DST_TOKEN,
             dst_chain=get_network_by_name(DST_CHAIN),
             amount_to_bridge_ether=AMOUNT,
+            bridge_mode=BRIDGE_MODE, 
+            slippage=SLIPPAGE
         )
 
 if __name__ == "__main__":
