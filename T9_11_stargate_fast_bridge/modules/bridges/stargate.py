@@ -59,6 +59,28 @@ class StargateV2:
             raise RuntimeError(f"You try to bridge unsupported token: {src_token_name}! "
                                f"Only ETH and USDC are supported")
     
+    async def get_bridge_status_from_l0_api(self, src_chain: Network, dst_chain: Network, tx_hash: str) -> None:
+        url = f'https://api-mainnet.layerzero-scan.com/tx/{tx_hash}'
+
+        max_time_to_wait = 360
+        time_spent = 0
+        while time_spent < max_time_to_wait:
+            try:
+                lz_tx_response = await self.client.make_request(method='GET', url=url)
+                if lz_tx_response.get('messages') and "dstTxHash" in lz_tx_response["messages"][0]:
+                    logger.success(f"Stargate V2 bridge transaction completed successfully!")
+                    logger.success(f"{dst_chain.name} tx: "
+                                f"{dst_chain.explorer}tx/{lz_tx_response['messages'][0]['dstTxHash']}")
+                    return
+            except Exception as error:
+                raise error
+            await asyncio.sleep(15)
+            time_spent += 15
+            logger.warning(f"Waiting {max_time_to_wait}s. for processing transaction on {dst_chain.name}... "
+                           f"Time spent: {time_spent}s.")
+        raise RuntimeError(f"Stargate V2 bridge transaction {src_chain.explorer}tx/{tx_hash} from {src_chain.name} to "
+                           f"{dst_chain.name} is not recieved after {max_time_to_wait} seconds")
+    
     async def bridge(
         self, 
         src_token_name: str, src_chain: Network, 
@@ -77,13 +99,14 @@ class StargateV2:
 
         bridge_fee_wei = message_fee[0]
         bridge_fee_ether = self.client.from_wei(bridge_fee_wei)
+        
         logger.info(
             f"Starting bridge {amount_to_bridge_ether:.6f} {src_token_name} {src_chain.name} -> "
             f"{dst_token_name} {dst_chain.name}. "
             f"Bridge mode: {bridge_mode}. Fee: {bridge_fee_ether:.6f} {self.native_token}.")
         
         contract = await self.get_stargate_contract(src_token_name)
-        
+
         try:
             if src_token_name != self.native_token:
                 await self.client.check_for_approved(
@@ -101,6 +124,6 @@ class StargateV2:
                 self.client.address
                 ).build_transaction(tx_params)
             _, tx_hash = await self.client.send_transaction(transaction)
-            
+            await self.get_bridge_status_from_l0_api(src_chain, dst_chain, tx_hash)
         except Exception as error:
             raise RuntimeError(f"Error sending bridge tx: {error}")

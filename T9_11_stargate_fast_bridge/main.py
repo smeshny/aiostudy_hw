@@ -45,11 +45,11 @@ async def main() -> None:
     On stargate frontend they use Stargate V1 contracts, not V2.
     """
     
-    SRC_TOKEN: str = 'ETH' # ETH -> ETH, USDC -> USDC
+    SRC_TOKEN: str = 'USDC' # ETH -> ETH, USDC -> USDC
     SRC_CHAIN: str = 'Optimism'
-    DST_TOKEN: str = 'ETH' # ETH -> ETH, USDC -> USDC
+    DST_TOKEN: str = 'USDC' # ETH -> ETH, USDC -> USDC
     DST_CHAIN: str = 'Arbitrum'
-    AMOUNT: float = 0.001
+    AMOUNT: float = 0.199994
     SLIPPAGE: float = 0.5 # 0.5 = 0.5%, 2 = 2%
     BRIDGE_MODE: str = 'TAXI' # "TAXI" - fast and expensive, "BUS" - slow and cheap
     
