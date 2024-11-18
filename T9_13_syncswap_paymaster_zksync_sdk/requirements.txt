@@ -4,3 +4,4 @@ web3==7.3.0
 python-dotenv==1.0.1
 Brotli==1.1.0
 loguru==0.7.2
+zksync2==2.0.0
