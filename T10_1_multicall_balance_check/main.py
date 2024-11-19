@@ -33,7 +33,7 @@ import asyncio
 from client import Client
 from settings import PRIVATE_KEY, PROXY
 from networks import get_network_by_name
-from modules.dex.syncswap import Syncswap
+from modules.multicall_functions import Multicall3
 
 
 async def main() -> None:
