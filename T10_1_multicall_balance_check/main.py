@@ -41,14 +41,19 @@ async def main() -> None:
     Multicall balance checker
     """
     
-    NETWORK_TO_WORK: str = 'zkSync'
-    TOKEN_FOR_PAYMASTER_COMISSION = 'USDC.e'
-    FROM_TOKEN: str = 'USDT'
-    TO_TOKEN: str = 'ETH'
-    INPUT_AMOUNT: float = 6.018713
-    SLIPPAGE: float = 1 # 0.3 = 0.3%
+    NETWORK_TO_WORK: str = 'Arbitrum'
+    TOKENS_TO_CHECK: list[str] = [
+        'WETH',
+        'USDC.e', 
+        'USDT',
+        'ARB',
+    ]
+    WALLETS_TO_CHECK: list[str] = [
+        '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', # Arbitrum Gate.io hot wallet
+        '0x5bdf85216ec1e38D6458C870992A69e38e03F7Ef', # Arbitrum Bitget 2 hot wallet
+        '0xDBF5E9c5206d0dB70a90108bf936DA60221dC080', # Arbitrum Wintermute hot wallet
+    ]
 
-    
     client = Client(
         account_name="aiostudy", 
         network=get_network_by_name(NETWORK_TO_WORK),
@@ -57,14 +62,12 @@ async def main() -> None:
     )
     
     async with client:
-        syncswap = Syncswap(client=client)
-        await syncswap.swap(
-            input_token_name=FROM_TOKEN,
-            output_token_name=TO_TOKEN,
-            input_amount_ether=INPUT_AMOUNT,
-            slippage=SLIPPAGE,
-            token_name_for_paymaster_comission=TOKEN_FOR_PAYMASTER_COMISSION,
-        )
+        multicall = Multicall3(client=client)
+        await multicall.get_balances(
+            tokens_to_check=TOKENS_TO_CHECK,
+            wallets_to_check=WALLETS_TO_CHECK
+            )
+
 
 if __name__ == "__main__":
     asyncio.run(main())
