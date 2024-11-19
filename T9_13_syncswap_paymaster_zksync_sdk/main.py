@@ -46,7 +46,7 @@ async def main() -> None:
     TOKEN_FOR_PAYMASTER_COMISSION = 'USDC.e'
     FROM_TOKEN: str = 'USDT'
     TO_TOKEN: str = 'ETH'
-    INPUT_AMOUNT: float = 111
+    INPUT_AMOUNT: float = 6.018713
     SLIPPAGE: float = 1 # 0.3 = 0.3%
 
     

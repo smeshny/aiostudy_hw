@@ -167,7 +167,7 @@ class Syncswap:
         min_amount_out_with_slippage = int(min_amount_out * (1 - slippage / 100))
         return min_amount_out_with_slippage
     
-    async def prepare_call_data_for_paymaster(
+    async def prepare_swap_transaction_for_paymaster(
         self, 
         input_token_name: str, 
         output_token_name: str, 
@@ -178,14 +178,34 @@ class Syncswap:
         input_token_address = TOKENS_PER_CHAIN[self.client.network.name][input_token_name]
         output_token_address = TOKENS_PER_CHAIN[self.client.network.name][output_token_name]
         input_token_decimals = await self.client.get_decimals(token_name=input_token_name)
+        output_token_decimals = await self.client.get_decimals(token_name=output_token_name)
         input_amount_wei = self.client.to_wei(input_amount_ether, input_token_decimals)
-        logger.debug(f"Input token: {input_token_name}, output token: {output_token_name}")
-        logger.debug(f"Input amount in wei: {input_amount_wei}")
-        pool_address = await self.get_pool_address(input_token_address, output_token_address)
-        logger.debug(f"Pool address: {pool_address}")
         
-        min_amount_out_wei = await self.get_min_amount_out(pool_address, input_token_address, input_amount_wei, slippage)
-        logger.debug(f"Min amount out: {min_amount_out_wei}")
+        if input_token_name == self.native_token:
+            balance_wei = await self.client.w3.eth.get_balance(self.client.address)
+            if balance_wei < input_amount_wei:
+                raise RuntimeError(f"You dont have enough {input_token_name} on your balance! "
+                                   f"Your balance is {self.client.from_wei(balance_wei):.6f} "
+                                   )
+        if input_token_name != self.native_token:
+            balance_wei = await self.client.get_erc20_balance(
+                token_address=input_token_address
+                )
+            if balance_wei < input_amount_wei:
+                raise RuntimeError(f"You dont have enough {input_token_name} on your balance! "
+                                   f"Your balance is {self.client.from_wei(balance_wei, input_token_decimals):.6f} "
+                                   )
+        
+        pool_address = await self.get_pool_address(input_token_address, output_token_address)
+
+        min_amount_out_wei = await self.get_min_amount_out(
+            pool_address, input_token_address, input_amount_wei, slippage
+            )
+        min_amount_out_ether = self.client.from_wei(min_amount_out_wei, output_token_decimals)
+        
+        logger.info(f"Start swap on Syncswap: {input_amount_ether:.6f} {input_token_name} -> "
+                    f"{min_amount_out_ether:.6f} {output_token_name}"
+                    )
         
         value = input_amount_wei if input_token_name == self.native_token else 0
         deadline = int(time.time() + 1200)
@@ -235,18 +255,34 @@ class Syncswap:
         slippage: float, 
         token_name_for_paymaster_comission: str
         ):
-        swap_transaction = await self.prepare_call_data_for_paymaster(
+        swap_transaction = await self.prepare_swap_transaction_for_paymaster(
             input_token_name, output_token_name, input_amount_ether, slippage
         )
-
+        
+        if token_name_for_paymaster_comission == self.native_token:
+            raise RuntimeError(f"You can't use {self.native_token} as a token for paymaster comission")
+        
+        token_address_for_paymaster_comission = (
+            TOKENS_PER_CHAIN[self.client.network.name][token_name_for_paymaster_comission]
+            )
+        token_for_paymaster_comission_decimals = await self.client.get_decimals(
+            token_name=token_name_for_paymaster_comission
+            )
+        token_for_paymaster_comission_balance_wei = await self.client.get_erc20_balance(
+            token_address=token_address_for_paymaster_comission
+            )
+        token_for_paymaster_comission_balance_ether = self.client.from_wei(
+            token_for_paymaster_comission_balance_wei, token_for_paymaster_comission_decimals
+            )
+        
+        logger.info(f"You have {token_for_paymaster_comission_balance_ether:.6f} "
+                    f"{token_name_for_paymaster_comission} for paymaster comission")
+        
         # Create paymaster parameters
         paymaster_address = CONTRACTS_PER_CHAIN[self.client.network.name]["SYNCSWAP_PAYMASTER"]
         paymaster_contract = self.client.get_contract(
             contract_address=paymaster_address, abi=ZKSYNC_SYNCSWAP_PAYMASTER_ABI
         )
-        token_address_for_paymaster_comission = (
-            TOKENS_PER_CHAIN[self.client.network.name][token_name_for_paymaster_comission]
-            )
         
         paymaster_input_data = paymaster_contract.encode_abi(
                 abi_element_identifier='approvalBased',
