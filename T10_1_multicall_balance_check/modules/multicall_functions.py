@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from collections import defaultdict
 
 from custom_logger import logger
@@ -17,6 +18,8 @@ class Multicall3:
             )
 
     async def get_balances(self, tokens_to_check: list[str], wallets_to_check: list[str]):
+        start_time = time.perf_counter()
+        
         token_data = []
         for token_name in tokens_to_check:
             token_info = {
@@ -66,6 +69,8 @@ class Multicall3:
         try:
             multicall_response = await self.multicall3_contract.functions.aggregate3(balance_calls).call()
         except Exception as error:
+            if 'Request Entity Too Large' in str(error):
+                raise RuntimeError(f'Try to reduce quantity of wallets to check')
             raise RuntimeError(f'Error during multicall: {error}')
         
         wallets_stats = defaultdict(dict)
@@ -88,6 +93,10 @@ class Multicall3:
                 erc20_balance_ether = float(self.client.from_wei(erc20_balance_wei, token_decimals))
                 wallets_stats[wallet][wallets_stats_primitive[i][0].get('token_name')] = erc20_balance_ether
 
+        end_time = time.perf_counter()
+        elapsed_time = end_time - start_time
+        
         logger.success(f'Stats for {len(wallets_to_check)} wallets in {self.client.network.name} succesfully fetched:')
+        logger.debug(f'Execution time: {elapsed_time:.2f} seconds')
         logger.info(json.dumps(wallets_stats, indent=4))
 
