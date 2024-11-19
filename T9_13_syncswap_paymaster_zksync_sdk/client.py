@@ -220,18 +220,25 @@ class Client:
             transaction=None, 
             poll_latency: int = 10,
             timeout: int = 360, 
-            signed_tx=None
+            signed_tx=None,
+            ready_tx: bytes=None
     ) -> bool | HexStr:
-        try:
-            transaction['gas'] = int((await self.w3.eth.estimate_gas(transaction)) * GAS_LIMIT_MULTIPLIER)
-        except Exception as error:
-            raise BlockchainException(f'{error}')
+        if ready_tx:
+            try:    
+                tx_hash = self.w3.to_hex(await self.w3.eth.send_raw_transaction(ready_tx))
+            except Exception as error:
+                raise BlockchainException(f'{error}')
+        else:
+            try:
+                transaction['gas'] = int((await self.w3.eth.estimate_gas(transaction)) * GAS_LIMIT_MULTIPLIER)
+            except Exception as error:
+                raise BlockchainException(f'{error}')
 
-        try:
-            signed_tx = self.w3.eth.account.sign_transaction(transaction, self.private_key).raw_transaction
-            tx_hash = self.w3.to_hex(await self.w3.eth.send_raw_transaction(signed_tx))
-        except Exception as error:
-            raise BlockchainException(f'{error}')
+            try:
+                signed_tx = self.w3.eth.account.sign_transaction(transaction, self.private_key).raw_transaction
+                tx_hash = self.w3.to_hex(await self.w3.eth.send_raw_transaction(signed_tx))
+            except Exception as error:
+                raise BlockchainException(f'{error}')
 
         total_time = 0
         while True:

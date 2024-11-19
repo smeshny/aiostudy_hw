@@ -17,7 +17,8 @@
 # • Количество входящего токена для свапа.
 # 2. Проверка настроек:
 # • Программа проверяет, заполнены ли все обязательные настройки.
-# • Если какая-то настройка не заполнена, выводится информативное сообщение об ошибке с указанием конкретной незаполненной настройки.
+# • Если какая-то настройка не заполнена, выводится информативное сообщение об ошибке с указанием 
+#   конкретной незаполненной настройки.
 # 3. Проверка баланса:
 # • Программа проверяет баланс кошелька пользователя во входящем токене.
 # • Убедитесь, что средств достаточно для проведения транзакции с учетом суммы свапа и комиссии за газ.
@@ -33,18 +34,21 @@ import asyncio
 from client import Client
 from settings import PRIVATE_KEY, PROXY
 from networks import get_network_by_name
-from modules.claim_simulation import ClaimSimulation
+from modules.dex.syncswap import Syncswap
 
 
 async def main() -> None:
     """
-    Calim simulation on DropManager contract
-    This script will claim all available tokens from DropManager contract.
-    You can specify amount of tokens to claim per each transaction.
+    Syncswap swap with paymaster and zksync2 python sdk
     """
     
-    AMOUNT_TO_CLAIM_PER_TRANSACTION: float = 4.20 # amount of tokens to claim per each transaction
-    NETWORK_TO_WORK: str = 'Arbitrum'
+    NETWORK_TO_WORK: str = 'zkSync'
+    TOKEN_FOR_PAYMASTER_COMISSION = 'USDC.e'
+    FROM_TOKEN: str = 'USDT'
+    TO_TOKEN: str = 'ETH'
+    INPUT_AMOUNT: float = 111
+    SLIPPAGE: float = 1 # 0.3 = 0.3%
+
     
     client = Client(
         account_name="aiostudy", 
@@ -54,8 +58,14 @@ async def main() -> None:
     )
     
     async with client:
-        claim_simulation = ClaimSimulation(client=client)
-        await claim_simulation.claim_all_tokens(amount_to_claim_per_transaction_ether=AMOUNT_TO_CLAIM_PER_TRANSACTION)
+        syncswap = Syncswap(client=client)
+        await syncswap.swap(
+            input_token_name=FROM_TOKEN,
+            output_token_name=TO_TOKEN,
+            input_amount_ether=INPUT_AMOUNT,
+            slippage=SLIPPAGE,
+            token_name_for_paymaster_comission=TOKEN_FOR_PAYMASTER_COMISSION,
+        )
 
 if __name__ == "__main__":
     asyncio.run(main())

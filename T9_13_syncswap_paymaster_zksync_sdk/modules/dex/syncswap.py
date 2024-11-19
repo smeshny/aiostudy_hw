@@ -1,11 +1,19 @@
 import asyncio
+import time
 
 from eth_abi import abi
+from eth_account import Account
+
+from zksync2.core.types import PaymasterParams
+from zksync2.signer.eth_signer import PrivateKeyEthSigner
+from zksync2.transaction.transaction_builders import TxFunctionCall
+from zksync2.module.module_builder import ZkSyncBuilder
+from zksync2.manage_contracts.paymaster_utils import PaymasterFlowEncoder
 
 from custom_logger import logger
 from client import Client
-from config import (CONTRACTS_PER_CHAIN, ZERO_ADDRESS, SYNCSWAP_ROUTER_V2_ABI, SYNCSWAP_POOL_ABI, 
-                    SYNCSWAP_CLASSIC_FACTORY_ABI)
+from config import (TOKENS_PER_CHAIN, CONTRACTS_PER_CHAIN, ZERO_ADDRESS, SYNCSWAP_ROUTER_V2_ABI, SYNCSWAP_POOL_ABI, 
+                    SYNCSWAP_CLASSIC_FACTORY_ABI, ZKSYNC_SYNCSWAP_PAYMASTER_ABI)
 
 
 class Syncswap:
@@ -148,3 +156,133 @@ class Syncswap:
             return await self.client.send_transaction(transaction)
         except Exception as error:
             raise error
+
+    async def get_min_amount_out(self, pool_address: str, from_token_address: str, amount_in_wei: int, slippage: float):
+        pool_contract = self.client.get_contract(
+            contract_address=pool_address, abi=SYNCSWAP_POOL_ABI
+        )
+        min_amount_out = await pool_contract.functions.getAmountOut(
+            from_token_address, amount_in_wei, self.client.address
+        ).call()
+        min_amount_out_with_slippage = int(min_amount_out * (1 - slippage / 100))
+        return min_amount_out_with_slippage
+    
+    async def prepare_call_data_for_paymaster(
+        self, 
+        input_token_name: str, 
+        output_token_name: str, 
+        input_amount_ether: float, 
+        slippage: float,
+        ):
+        
+        input_token_address = TOKENS_PER_CHAIN[self.client.network.name][input_token_name]
+        output_token_address = TOKENS_PER_CHAIN[self.client.network.name][output_token_name]
+        input_token_decimals = await self.client.get_decimals(token_name=input_token_name)
+        input_amount_wei = self.client.to_wei(input_amount_ether, input_token_decimals)
+        logger.debug(f"Input token: {input_token_name}, output token: {output_token_name}")
+        logger.debug(f"Input amount in wei: {input_amount_wei}")
+        pool_address = await self.get_pool_address(input_token_address, output_token_address)
+        logger.debug(f"Pool address: {pool_address}")
+        
+        min_amount_out_wei = await self.get_min_amount_out(pool_address, input_token_address, input_amount_wei, slippage)
+        logger.debug(f"Min amount out: {min_amount_out_wei}")
+        
+        value = input_amount_wei if input_token_name == self.native_token else 0
+        deadline = int(time.time() + 1200)
+        withdraw_mode = 1  # unwrap wETH
+        
+        swap_data = abi.encode(
+            ["address", "address", "uint8"],
+            [input_token_address, self.client.address, withdraw_mode]
+        )
+        
+        steps = [
+            pool_address,
+            swap_data,
+            ZERO_ADDRESS,
+            '0x',
+            True
+        ]
+        
+        paths = [
+            [steps],
+            input_token_address if not input_token_name == self.native_token else ZERO_ADDRESS,
+            input_amount_wei,
+        ]
+        
+        if input_token_name != self.native_token:
+            await self.client.check_for_approved(
+                token_address=input_token_address, spender_address=self.router_contract.address,
+                amount_in_wei=input_amount_wei
+            )
+        
+        tx_params = (await self.client.prepare_transaction()) | {
+                'value': value,
+            }
+        transaction = await self.router_contract.functions.swap(
+                [paths],
+                min_amount_out_wei,
+                deadline
+            ).build_transaction(tx_params)
+        
+        return transaction
+
+    async def swap(
+        self, 
+        input_token_name: str, 
+        output_token_name: str, 
+        input_amount_ether: float, 
+        slippage: float, 
+        token_name_for_paymaster_comission: str
+        ):
+        swap_transaction = await self.prepare_call_data_for_paymaster(
+            input_token_name, output_token_name, input_amount_ether, slippage
+        )
+
+        # Create paymaster parameters
+        paymaster_address = CONTRACTS_PER_CHAIN[self.client.network.name]["SYNCSWAP_PAYMASTER"]
+        paymaster_contract = self.client.get_contract(
+            contract_address=paymaster_address, abi=ZKSYNC_SYNCSWAP_PAYMASTER_ABI
+        )
+        token_address_for_paymaster_comission = (
+            TOKENS_PER_CHAIN[self.client.network.name][token_name_for_paymaster_comission]
+            )
+        
+        paymaster_input_data = paymaster_contract.encode_abi(
+                abi_element_identifier='approvalBased',
+                args=(
+                    token_address_for_paymaster_comission,
+                    2000000000,
+                    "0x000000000000000000000000000000000000000000000000000000000000000f"
+                )
+            )
+
+        paymaster_params = PaymasterParams(**{
+            "paymaster": paymaster_address,
+            "paymaster_input": self.client.w3.to_bytes(hexstr=paymaster_input_data)
+        })
+
+        tx_712 = TxFunctionCall(
+            chain_id=int(swap_transaction['chainId']),
+            nonce=int(swap_transaction['nonce']),
+            from_=swap_transaction['from'],
+            to=swap_transaction['to'],
+            value=int(swap_transaction['value']) if input_token_name == self.native_token else 0,
+            data=swap_transaction['data'],
+            gas_price=int(swap_transaction['maxFeePerGas']),
+            max_priority_fee_per_gas=int(swap_transaction['maxPriorityFeePerGas']),
+            paymaster_params=paymaster_params
+        ).tx712(int(swap_transaction['gas']))
+        
+        account = Account.from_key(self.client.private_key)
+        signer = PrivateKeyEthSigner(account, self.client.chain_id)
+        signed_message = signer.sign_typed_data(tx_712.to_eip712_struct())
+        msg = tx_712.encode(signed_message)
+        
+        try:
+            return await self.client.send_transaction(ready_tx=msg)
+        except Exception as error:
+            if 'Validation revert: Paymaster validation error: TF' in str(error):
+                raise RuntimeError(f"Not enough {token_name_for_paymaster_comission} for paymaster comission")
+            else:
+                raise error
