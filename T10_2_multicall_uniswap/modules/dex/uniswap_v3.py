@@ -55,23 +55,30 @@ class UniswapV3:
         return path
     
     async def get_min_amount_out(
-        self, input_amount_wei: int, token_a_address: str, token_b_address: str, slippage: float, path: bytes
+        self, 
+        input_amount_wei: int, 
+        token_a_name: str, token_a_address: str, 
+        token_b_name: str, token_b_address: str, 
+        slippage: float, 
+        path: bytes
         ) -> int:
         uniswap_v3_quote = await self.quoter_contract.functions.quoteExactInput(path, input_amount_wei).call()
         uniswap_v3_amount_out = int(uniswap_v3_quote[0])
         min_amount_out_with_slippage = int(uniswap_v3_amount_out * (100 - slippage) / 100)
         
-        # Print if the external quote is better than the Uniswap V3 quote
         external_quote = await self.external_price_provider.get_external_quote(
             input_token=token_a_address, output_token=token_b_address, input_amount=input_amount_wei, slippage=slippage
             )
         external_amount_out = int(external_quote['outAmounts'][0])
         difference_in_percentage = (external_amount_out - uniswap_v3_amount_out) / external_amount_out * 100
+        token_pair_name = f"{token_a_name}/{token_b_name}"
         
         if difference_in_percentage > 0:
-            logger.warning(f"ODOS quote is better than Uniswap V3 quote by {difference_in_percentage:.1f}%")
+            logger.warning(f"ODOS quote for {token_pair_name} is better than Uniswap V3 quote by "
+                           f"{difference_in_percentage:.1f}%")
         else:
-            logger.warning(f"Uniswap V3 quote is better than ODOS quote by {difference_in_percentage:.1f}%") 
+            logger.warning(f"Uniswap V3 quote for {token_pair_name} is better than ODOS quote by "
+                           f"{difference_in_percentage:.1f}%") 
         
         return min_amount_out_with_slippage
     
@@ -105,7 +112,7 @@ class UniswapV3:
 
         path: bytes = await self.get_path(input_token, output_token)
         min_amount_out_wei: int = await self.get_min_amount_out(
-            input_amount_wei, input_token, output_token, slippage, path
+            input_amount_wei, input_token_name, input_token, output_token_name, output_token, slippage, path
             )
     
         decimals_output_token = await self.client.get_decimals(token_address=output_token)
@@ -138,7 +145,7 @@ class UniswapV3:
         
         return multicall_data, value_wei, min_amount_out_native_wei, tokens_to_approve
 
-    async def multicallswap(
+    async def multicall_swap(
         self,
         swap_pairs: list[SwapPair]
         ):
@@ -165,8 +172,6 @@ class UniswapV3:
             min_amount_out_wei += min_amount_out_native_wei
             all_tokens_to_approve.extend(token_to_approve)
         
-        logger.info(f"Start perfoming multicall swap on Uniswap V3...")
-        
         if self.native_token in all_from_token_names or self.native_token in all_to_token_names:
             tx_additional_data = self.router_contract.encode_abi(
                 abi_element_identifier='unwrapWETH9' if self.native_token not in all_from_token_names else 'refundETH',
@@ -176,7 +181,9 @@ class UniswapV3:
                 ] if self.native_token not in all_from_token_names else None
             )
             all_multicall_data.append(tx_additional_data)
-            
+        
+        logger.info(f"Start perfoming multicall swap on Uniswap V3...")
+        
         for token_to_approve in all_tokens_to_approve:
             await self.client.check_for_approved(
                 token_address=token_to_approve[0], 
@@ -195,6 +202,6 @@ class UniswapV3:
             return await self.client.send_transaction(transaction)
         except Exception as error:
             if 'execution reverted: STF' in str(error):
-                raise RuntimeError(f"Probably you don't have enough tokens for this swap: {error}")
+                raise RuntimeError(f"Probably you don't have enough tokens for this swap! Error: {error}")
             else:
                 raise error
