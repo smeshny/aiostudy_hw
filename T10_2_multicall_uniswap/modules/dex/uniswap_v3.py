@@ -7,6 +7,7 @@ from eth_utils import to_canonical_address
 from client import Client
 from custom_logger import logger
 from modules.dex.odos import Odos
+from modules.multicall_functions import Multicall3
 from config import (TOKENS_PER_CHAIN, CONTRACTS_PER_CHAIN, UNISWAP_V3_ROUTER_02_ABI, UNISWAP_V3_QUOTER_V2_ABI,
                     UNISWAP_V3_FACTORY_ABI, ZERO_ADDRESS
                     )
@@ -23,7 +24,10 @@ class SwapPair:
 class UniswapV3:
     def __init__(self, client: Client) -> None:
         self.client: Client = client
+        self.external_price_provider = Odos(client=self.client)
+        self.multicall3 = Multicall3(client=self.client)
         self.native_token = self.client.network.token
+        
         self.router_address = CONTRACTS_PER_CHAIN[self.client.network.name]["UNISWAP_V3_ROUTER_02"]
         self.router_contract = self.client.get_contract(
             contract_address=self.router_address, abi=UNISWAP_V3_ROUTER_02_ABI
@@ -36,7 +40,6 @@ class UniswapV3:
         self.factory_contract = self.client.get_contract(
             contract_address=self.factory_address, abi=UNISWAP_V3_FACTORY_ABI
             )
-        self.external_price_provider = Odos(client=self.client)
         
     async def check_pool_and_return_fee(self, token_a_address: str, token_b_address: str) -> int:
         possible_fees: list[int] = [100, 500, 2000, 2500, 3000, 5000, 10000]
@@ -137,7 +140,7 @@ class UniswapV3:
         
         tokens_to_approve = []
         if input_token_name != self.native_token:
-            tokens_to_approve.append((input_token, input_amount_wei))
+            tokens_to_approve.append((input_token, self.router_address, input_amount_wei))
         
         logger.info(f"Successfully fetched data for swap on Uniswap V3: {input_amount:.6f} {input_token_name} -> "
               f"{min_amount_out_ether:.6f} {output_token_name}"
@@ -184,12 +187,18 @@ class UniswapV3:
         
         logger.info(f"Start perfoming multicall swap on Uniswap V3...")
         
-        for token_to_approve in all_tokens_to_approve:
-            await self.client.check_for_approved(
-                token_address=token_to_approve[0], 
-                spender_address=self.router_address, 
-                amount_in_wei=token_to_approve[1]
-                )
+        # for token_to_approve in all_tokens_to_approve:
+        #     await self.client.check_for_approved(
+        #         token_address=token_to_approve[0], 
+        #         spender_address=self.router_address, 
+        #         amount_in_wei=token_to_approve[1]
+        #         )
+        
+        #########################################################################################
+        # this approach is not working because msg.sender is multicall3 contract address
+        # if all_tokens_to_approve:
+        #     await self.multicall3.make_multiple_erc20_spend_approvals(all_tokens_to_approve)
+        #########################################################################################
             
         try:
             tx_params = (await self.client.prepare_transaction()) | {

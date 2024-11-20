@@ -100,3 +100,35 @@ class Multicall3:
         logger.debug(f'Execution time: {elapsed_time:.2f} seconds')
         logger.info(json.dumps(wallets_stats, indent=4))
 
+    # async def make_multiple_erc20_spend_approvals(self, tokens_to_approve_data: list[tuple[str, str, int]]):
+    # '''
+    # This naive approach is not working becaouse msg.sender in this case is multicall3 contract address
+    # But for erc20 approve for router address msg.sender should be our wallet address
+    # more information about msg.sender:
+    
+    
+    # For this purpose UniswapV3Router contract has a functions *SelfPermit:
+    # https://arbiscan.io/address/0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45#writeProxyContract
+    # '''
+    
+    
+    #     multicall_approval_data = []
+    #     for token_to_approve in tokens_to_approve_data:
+    #         token_address, spender_address, amount_in_wei = token_to_approve
+            
+    #         erc20_approve_call = self.client.get_contract(contract_address=token_address).encode_abi(
+    #             abi_element_identifier='approve',
+    #             args=[spender_address, amount_in_wei]
+    #         )
+    #         multicall_approval_data.append([token_address, False, erc20_approve_call])
+    #     logger.info(f"Performing multicall3 spend approvals for {len(tokens_to_approve_data)} tokens...")
+    #     try:
+    #         tx_params = (await self.client.prepare_transaction()) | {
+    #             'value': 0,
+    #         }
+    #         transaction = await self.multicall3_contract.functions.aggregate3(
+    #             multicall_approval_data
+    #         ).build_transaction(tx_params)
+    #         return await self.client.send_transaction(transaction)
+    #     except Exception as error:
+    #         raise RuntimeError(f'Error during multicall: {error}')
