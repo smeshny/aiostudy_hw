@@ -26,37 +26,23 @@ import asyncio
 
 from client import Client
 from settings import PRIVATE_KEY, PROXY
+from config import TOKENS_PER_CHAIN
 from networks import get_network_by_name
-from modules.multicall_functions import Multicall3
+from modules.dex.uniswap_v3 import UniswapV3, SwapPair
 
 
 async def main() -> None:
     """
-    Multicall balance checker
+    Uniswap v3 multicall swap for 2 pairs e.g. ETH->USDT and ETH->DAI
+    Multicall swap perform in single transaction
     """
     
     NETWORK_TO_WORK: str = 'Arbitrum'
-    TOKENS_TO_CHECK: list[str] = [
-        'WETH',
-        'USDC.e', 
-        'USDT',
-        'ARB',
-        'DAI',
-        'OX',
-        'ADP'
-    ]
-    WALLETS_TO_CHECK: list[str] = [
-        '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', # Arbitrum Gate.io hot wallet
-        '0x5bdf85216ec1e38D6458C870992A69e38e03F7Ef', # Arbitrum Bitget 2 hot wallet
-        '0xDBF5E9c5206d0dB70a90108bf936DA60221dC080', # Arbitrum Wintermute hot wallet
-        '0xf92402bB795Fd7CD08fb83839689DB79099C8c9C', # Binance 6
-        '0x1B5B4e441F5A22bfd91B7772C780463F66A74b35', # Binance 56
-        '0xB38e8c17e38363aF6EbdCb3dAE12e0243582891D', # Binance 54
-        '0x490b1E689Ca23be864e55B46bf038e007b528208', # Kraken 2
-        '0xbFc1FECa8B09A5c5D3EFfE7429eBE24b9c09EF58', # Arbitrum Foundation: L2 Treasury Timelock
-        '0x82CbeCF39bEe528B5476FE6d1550af59a9dB6Fc0', # Stargate Finance
-        '0x0938C63109801Ee4243a487aB84DFfA2Bba4589e', # OKX
-        '0xe93685f3bBA03016F02bD1828BaDD6195988D950', # Layer Zero: Executor
+    
+    SWAP_PAIRS: list[SwapPair] = [
+        SwapPair(from_token_name='ETH', to_token_name='USDT', from_amount=0.0001, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='DAI', from_amount=0.0001, slippage=1),
+        # Add more SwapPair instances as needed
     ]
 
     client = Client(
@@ -67,11 +53,10 @@ async def main() -> None:
     )
     
     async with client:
-        multicall = Multicall3(client=client)
-        await multicall.get_balances(
-            tokens_to_check=TOKENS_TO_CHECK,
-            wallets_to_check=WALLETS_TO_CHECK
-            )
+        uniswap_v3 = UniswapV3(client=client)
+        await uniswap_v3.multicallswap(
+            swap_pairs=SWAP_PAIRS
+        )
 
 
 if __name__ == "__main__":
