@@ -10,7 +10,7 @@ import networks
 UNLIMITED_APPROVE = False # if True, the contract will be approved for spending unlimited amount of tokens
 
 GAS_PRICE_MULTIPLIER = 1.3
-GAS_LIMIT_MULTIPLIER = 1.5
+GAS_LIMIT_MULTIPLIER = 1.3
 
 load_dotenv()
 

@@ -1,8 +1,11 @@
 import asyncio
 import time
+import random
 from dataclasses import dataclass
 
 from eth_utils import to_canonical_address
+from eth_account.messages import encode_defunct
+from eth_account.messages import encode_typed_data
 
 from client import Client
 from custom_logger import logger
@@ -140,13 +143,105 @@ class UniswapV3:
         
         tokens_to_approve = []
         if input_token_name != self.native_token:
-            tokens_to_approve.append((input_token, self.router_address, input_amount_wei))
+            tokens_to_approve.append((input_token, input_amount_wei))
         
         logger.info(f"Successfully fetched data for swap on Uniswap V3: {input_amount:.6f} {input_token_name} -> "
               f"{min_amount_out_ether:.6f} {output_token_name}"
         )
         
         return multicall_data, value_wei, min_amount_out_native_wei, tokens_to_approve
+
+    async def make_one_multicall_erc20_spend_approval(self, tokens_to_approve: list[tuple[str, int]]):
+        approval_calls = []
+        
+        
+        for token_to_approve in tokens_to_approve:
+            deadline = int(time.time()) + 360
+            token_address, amount_in_wei = token_to_approve
+            
+            token_contract = self.client.get_contract(contract_address=token_address)
+            name = await token_contract.functions.name().call()
+            try:
+                version = await token_contract.functions.version().call()
+            except Exception as error:
+                logger.error(f"Error getting version for {name} token: {error}")
+                version = "1"
+            nonce_erc20 = await token_contract.functions.nonces(self.client.address).call()
+            
+            # Define the EIP-712 domain
+            domain = {
+                "name": name,
+                "version": version,
+                "chainId": self.client.network.chain_id,
+                "verifyingContract": token_address
+            }
+            
+            # Define the Permit type
+            permit_type = {
+                "Permit": [
+                    {"name": "owner", "type": "address"},
+                    {"name": "spender", "type": "address"},
+                    {"name": "value", "type": "uint256"},
+                    {"name": "nonce", "type": "uint256"},
+                    {"name": "deadline", "type": "uint256"},
+                ]
+            }
+
+            # Construct the permit message
+            message = {
+                "types": {
+                    "EIP712Domain": [
+                        {"name": "name", "type": "string"},
+                        {"name": "version", "type": "string"},
+                        {"name": "chainId", "type": "uint256"},
+                        {"name": "verifyingContract", "type": "address"},
+                    ],
+                    **permit_type
+                },
+                "domain": domain,
+                "primaryType": "Permit",
+                "message": {
+                    "owner": self.client.address,
+                    "spender": self.router_address,
+                    "value": amount_in_wei,
+                    "nonce": nonce_erc20,
+                    "deadline": deadline,
+                },
+            }
+            
+            signable_message = encode_typed_data(full_message=message)
+            # sign message:
+            signed_message = self.client.w3.eth.account.sign_message(
+                signable_message=signable_message, private_key=self.client.private_key
+                )
+            v, r, s = signed_message.v, signed_message.r, signed_message.s
+            r_bytes = r.to_bytes(32, byteorder='big')
+            s_bytes = s.to_bytes(32, byteorder='big')
+            
+            # selfPermitIfNecessary only call if allowance is insufficient
+            erc20_approve_call = self.router_contract.encode_abi(
+                abi_element_identifier='selfPermitIfNecessary',
+                args=[
+                    token_address, 
+                    amount_in_wei, 
+                    deadline, 
+                    v, 
+                    r_bytes, 
+                    s_bytes]
+                )
+            approval_calls.append(erc20_approve_call)
+            
+        try:
+            tx_params = (await self.client.prepare_transaction()) | {
+                'value': 0,
+            }
+            transaction = await self.router_contract.functions.multicall(
+                approval_calls,
+            ).build_transaction(tx_params)
+            return await self.client.send_transaction(transaction)
+        except Exception as error:
+            raise error
+
 
     async def multicall_swap(
         self,
@@ -187,19 +282,16 @@ class UniswapV3:
         
         logger.info(f"Start perfoming multicall swap on Uniswap V3...")
         
-        # for token_to_approve in all_tokens_to_approve:
-        #     await self.client.check_for_approved(
-        #         token_address=token_to_approve[0], 
-        #         spender_address=self.router_address, 
-        #         amount_in_wei=token_to_approve[1]
-        #         )
+        if all_tokens_to_approve:
+            logger.info(f"Start batch multicall approve for {len(all_tokens_to_approve)} tokens")
+            await self.make_one_multicall_erc20_spend_approval(all_tokens_to_approve)
         
         #########################################################################################
         # this approach is not working because msg.sender is multicall3 contract address
         # if all_tokens_to_approve:
         #     await self.multicall3.make_multiple_erc20_spend_approvals(all_tokens_to_approve)
         #########################################################################################
-            
+
         try:
             tx_params = (await self.client.prepare_transaction()) | {
                 'value': total_value_wei,
