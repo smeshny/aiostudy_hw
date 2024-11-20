@@ -38,24 +38,24 @@ class UniswapV3:
             )
         self.external_price_provider = Odos(client=self.client)
         
-    async def check_pool_and_return_fee(self, token_a: str, token_b: str) -> tuple[str, int]:
+    async def check_pool_and_return_fee(self, token_a_address: str, token_b_address: str) -> int:
         possible_fees: list[int] = [100, 500, 2000, 2500, 3000, 5000, 10000]
         for fee in possible_fees:
-            pool_address = await self.factory_contract.functions.getPool(token_a, token_b, fee).call()
+            pool_address = await self.factory_contract.functions.getPool(token_a_address, token_b_address, fee).call()
             if pool_address != ZERO_ADDRESS:
                 return fee
-        raise RuntimeError(f"Can't find pool for tokens {token_a} and {token_b}")
+        raise RuntimeError(f"Can't find pool for tokens {token_a_address} and {token_b_address}")
     
-    async def get_path(self, token_a: str, token_b: str) -> bytes:
-        fee = await self.check_pool_and_return_fee(token_a, token_b)
+    async def get_path(self, token_a_address: str, token_b_address: str) -> bytes:
+        fee = await self.check_pool_and_return_fee(token_a_address, token_b_address)
         # Convert the token addresses to bytes
-        token_a_bytes = to_canonical_address(token_a)
-        token_b_bytes = to_canonical_address(token_b)
+        token_a_bytes = to_canonical_address(token_a_address)
+        token_b_bytes = to_canonical_address(token_b_address)
         path = token_a_bytes + fee.to_bytes(3, 'big') + token_b_bytes
         return path
     
     async def get_min_amount_out(
-        self, input_amount_wei: int, token_a: str, token_b: str, slippage: float, path: bytes
+        self, input_amount_wei: int, token_a_address: str, token_b_address: str, slippage: float, path: bytes
         ) -> int:
         uniswap_v3_quote = await self.quoter_contract.functions.quoteExactInput(path, input_amount_wei).call()
         uniswap_v3_amount_out = int(uniswap_v3_quote[0])
@@ -63,7 +63,7 @@ class UniswapV3:
         
         # Print if the external quote is better than the Uniswap V3 quote
         external_quote = await self.external_price_provider.get_external_quote(
-            input_token=token_a, output_token=token_b, input_amount=input_amount_wei, slippage=slippage
+            input_token=token_a_address, output_token=token_b_address, input_amount=input_amount_wei, slippage=slippage
             )
         external_amount_out = int(external_quote['outAmounts'][0])
         difference_in_percentage = (external_amount_out - uniswap_v3_amount_out) / external_amount_out * 100
@@ -75,8 +75,7 @@ class UniswapV3:
         
         return min_amount_out_with_slippage
     
-    
-    async def get_multicall_data_and_value_for_swap(
+    async def get_multicall_params_for_swap(
         self, 
         input_token_name: str,
         output_token_name: str, 
@@ -113,105 +112,82 @@ class UniswapV3:
         min_amount_out_ether = self.client.from_wei(min_amount_out_wei, decimals=decimals_output_token)
         
         multicall_data = []
-        deadline = int(time.time() + 60 * 12)
         
         swap_data = self.router_contract.encode_abi(
             abi_element_identifier='exactInput',
             args=[{
                 'path': path,
                 'recipient': self.client.address if output_token_name != self.native_token
-                else ZERO_ADDRESS,
-                # 'deadline': deadline,
+                else self.router_address,
                 'amountIn': input_amount_wei,
                 'amountOutMinimum': min_amount_out_wei
             }]
         )
         multicall_data.append(swap_data)
         
-        # if output_token_name == self.native_token or input_token_name == self.native_token:
-        #     tx_additional_data = self.router_contract.encode_abi(
-        #         abi_element_identifier='unwrapWETH9' if input_token_name != self.native_token else 'refundETH',
-        #         args=[
-        #             min_amount_out_wei,
-        #             self.client.address
-        #         ] if input_token_name != self.native_token else None
-        #     )
-        #     multicall_data.append(tx_additional_data)
-        
         value_wei = input_amount_wei if input_token_name == self.native_token else 0
+        min_amount_out_native_wei = min_amount_out_wei if output_token_name == self.native_token else 0
+        
+        tokens_to_approve = []
+        if input_token_name != self.native_token:
+            tokens_to_approve.append((input_token, input_amount_wei))
         
         logger.info(f"Successfully fetched data for swap on Uniswap V3: {input_amount:.6f} {input_token_name} -> "
               f"{min_amount_out_ether:.6f} {output_token_name}"
         )
         
-        if input_token_name != self.native_token:
-            await self.client.check_for_approved(
-                token_address=input_token, spender_address=self.router_address, amount_in_wei=input_amount_wei
-                )
-
-        # try:
-        #     tx_params = (await self.client.prepare_transaction()) | {
-        #         'value': value_wei,
-        #     }
-  
-        #     transaction = await self.router_contract.functions.multicall(
-        #         multicall_data,
-        #     ).build_transaction(tx_params)
-        #     return await self.client.send_transaction(transaction)
-        # except Exception as error:
-        #     raise error
-            # if 'execution reverted: STF' in str(error):
-            #     raise RuntimeError(f"Sorry, probably you don't have enough tokens for this swap")
-            # else:
-            #     raise error
-
-        return multicall_data, value_wei
+        return multicall_data, value_wei, min_amount_out_native_wei, tokens_to_approve
 
     async def multicallswap(
         self,
-        input_token1_name: str,
-        output_token1_name: str,
-        input_amount1: float,
-        input_token2_name: str,
-        output_token2_name: str,
-        input_amount2: float,
-        slippage: float
+        swap_pairs: list[SwapPair]
         ):
-        multicall_data_1, value_wei_1 = await self.get_multicall_data_and_value_for_swap(
-            input_token1_name, output_token1_name, input_amount1, slippage
+        all_multicall_data = []
+        total_value_wei = 0
+        min_amount_out_wei = 0
+        all_tokens_to_approve = []
+        all_from_token_names = [swap_pair.from_token_name for swap_pair in swap_pairs]
+        all_to_token_names = [swap_pair.to_token_name for swap_pair in swap_pairs]
+        
+        for swap_pair in swap_pairs:
+            multicall_data, value_wei, min_amount_out_native_wei, token_to_approve = await self.get_multicall_params_for_swap(
+                swap_pair.from_token_name, swap_pair.to_token_name, swap_pair.from_amount, swap_pair.slippage
             )
-        # multicall_data_2, value_wei_2 = await self.get_multicall_data_and_value_for_swap(
-        #     input_token2_name, output_token2_name, input_amount2, slippage
-        # #     )
-
-        # all_multicall_data = multicall_data_1 + multicall_data_2
-        # total_value_wei = value_wei_1 + value_wei_2
+            all_multicall_data.extend(multicall_data)
+            total_value_wei += value_wei
+            min_amount_out_wei += min_amount_out_native_wei
+            all_tokens_to_approve.extend(token_to_approve)
         
-        # logger.debug(f"Total {self.native_token} value to pay: {self.client.from_wei(total_value_wei):.6f}")
-        # logger.info(f"Start perfoming multicall swap on Uniswap V3...")
+        logger.info(f"Start perfoming multicall swap on Uniswap V3...")
         
-        if output_token_name == self.native_token or input_token_name == self.native_token:
+        if self.native_token in all_from_token_names or self.native_token in all_to_token_names:
             tx_additional_data = self.router_contract.encode_abi(
-                abi_element_identifier='unwrapWETH9' if input_token_name != self.native_token else 'refundETH',
+                abi_element_identifier='unwrapWETH9' if self.native_token not in all_from_token_names else 'refundETH',
                 args=[
                     min_amount_out_wei,
                     self.client.address
-                ] if input_token_name != self.native_token else None
+                ] if self.native_token not in all_from_token_names else None
             )
-            multicall_data.append(tx_additional_data)
-        
-        # try:
-        #     tx_params = (await self.client.prepare_transaction()) | {
-        #         'value': total_value_wei,
-        #     }
+            all_multicall_data.append(tx_additional_data)
+            
+        for token_to_approve in all_tokens_to_approve:
+            await self.client.check_for_approved(
+                token_address=token_to_approve[0], 
+                spender_address=self.router_address, 
+                amount_in_wei=token_to_approve[1]
+                )
+            
+        try:
+            tx_params = (await self.client.prepare_transaction()) | {
+                'value': total_value_wei,
+            }
   
-        #     transaction = await self.router_contract.functions.multicall(
-        #         all_multicall_data,
-        #     ).build_transaction(tx_params)
-        #     return await self.client.send_transaction(transaction)
-        # except Exception as error:
-        #     raise error
-        #     # if 'execution reverted: STF' in str(error):
-        #     #     raise RuntimeError(f"Sorry, probably you don't have enough tokens for this swap")
-        #     # else:
-        #     #     raise error
+            transaction = await self.router_contract.functions.multicall(
+                all_multicall_data,
+            ).build_transaction(tx_params)
+            return await self.client.send_transaction(transaction)
+        except Exception as error:
+            if 'execution reverted: STF' in str(error):
+                raise RuntimeError(f"Probably you don't have enough tokens for this swap: {error}")
+            else:
+                raise error
