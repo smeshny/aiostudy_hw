@@ -149,10 +149,17 @@ class UniswapV3:
         all_from_token_names = [swap_pair.from_token_name for swap_pair in swap_pairs]
         all_to_token_names = [swap_pair.to_token_name for swap_pair in swap_pairs]
         
-        for swap_pair in swap_pairs:
-            multicall_data, value_wei, min_amount_out_native_wei, token_to_approve = await self.get_multicall_params_for_swap(
-                swap_pair.from_token_name, swap_pair.to_token_name, swap_pair.from_amount, swap_pair.slippage
+        multicall_params_responses = await asyncio.gather(*[
+            self.get_multicall_params_for_swap(
+                swap_pair.from_token_name,
+                swap_pair.to_token_name,
+                swap_pair.from_amount,
+                swap_pair.slippage
             )
+            for swap_pair in swap_pairs
+        ])
+        
+        for multicall_data, value_wei, min_amount_out_native_wei, token_to_approve in multicall_params_responses:
             all_multicall_data.extend(multicall_data)
             total_value_wei += value_wei
             min_amount_out_wei += min_amount_out_native_wei

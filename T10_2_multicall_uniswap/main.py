@@ -26,7 +26,6 @@ import asyncio
 
 from client import Client
 from settings import PRIVATE_KEY, PROXY
-from config import TOKENS_PER_CHAIN
 from networks import get_network_by_name
 from modules.dex.uniswap_v3 import UniswapV3, SwapPair
 
@@ -40,10 +39,13 @@ async def main() -> None:
     NETWORK_TO_WORK: str = 'Arbitrum'
     
     SWAP_PAIRS: list[SwapPair] = [
-        # SwapPair(from_token_name='ETH', to_token_name='USDT', from_amount=0.0001, slippage=1),
-        # SwapPair(from_token_name='ETH', to_token_name='DAI', from_amount=0.0001, slippage=1),
-        SwapPair(from_token_name='USDT', to_token_name='ETH', from_amount=0, slippage=1),
-        SwapPair(from_token_name='DAI', to_token_name='ETH', from_amount=0, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='USDT', from_amount=0.0001, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='DAI', from_amount=0.0001, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='USDC', from_amount=0.0001, slippage=1),
+        
+        # SwapPair(from_token_name='USDT', to_token_name='ETH', from_amount=0, slippage=1),
+        # SwapPair(from_token_name='DAI', to_token_name='ETH', from_amount=0, slippage=1),
+        # SwapPair(from_token_name='USDC', to_token_name='ETH', from_amount=0, slippage=1),
         
         # Add more SwapPair instances as needed
     ]
