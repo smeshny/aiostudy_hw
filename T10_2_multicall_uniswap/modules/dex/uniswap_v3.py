@@ -53,11 +53,17 @@ class UniswapV3:
     #     raise RuntimeError(f"Can't find pool for tokens {token_a_address} and {token_b_address}")
     
     async def check_pool_and_return_fee(self, token_a_address: str, token_b_address: str) -> int:
-        possible_fees: list[int] = [100, 200, 300, 400, 500, 1000, 2000, 2500, 3000, 5000, 10000]
+        possible_fees: list[int] = [10, 50, 100, 200, 300, 400, 500, 1000, 2000, 2500, 3000, 5000, 10000]
         
-        fetched_pools_data = await self.multicall3.fetch_pools_data_from_factory(
-            token_a_address, token_b_address, possible_fees, self.factory_contract)
-    
+        fetched_pools_from_multicall: list[tuple[str, int]] = await self.multicall3.fetch_pools_data_from_factory(
+            token_a_address, token_b_address, possible_fees, self.factory_contract
+            )
+        # here selecting pool with the lowest fee
+        for pool_address, fee in fetched_pools_from_multicall:
+            if pool_address != ZERO_ADDRESS:
+                return fee
+        raise RuntimeError(f"Can't find pool for tokens {token_a_address} and {token_b_address}")
+
     async def get_path(self, token_a_address: str, token_b_address: str) -> bytes:
         fee = await self.check_pool_and_return_fee(token_a_address, token_b_address)
         # Convert the token addresses to bytes
@@ -100,7 +106,7 @@ class UniswapV3:
         output_token_name: str, 
         input_amount: float, 
         slippage: float
-        ):
+        ) -> tuple[list[bytes], int, int, list[tuple[str, int]]]:
         if input_token_name in ('ETH', 'WETH', 'BNB', 'WBNB') and output_token_name in ('ETH', 'WETH', 'BNB', 'WBNB'):
             raise RuntimeError(
                 "Sorry, you can't swap ETH->WETH or WETH->ETH, because it's not a swap, it's wrap or unwrap"
@@ -246,6 +252,8 @@ class UniswapV3:
         self,
         swap_pairs: list[SwapPair]
         ):
+        start_time = time.perf_counter()
+        
         all_multicall_data = []
         total_value_wei = 0
         min_amount_out_wei = 0
@@ -280,7 +288,7 @@ class UniswapV3:
             all_multicall_data.append(tx_additional_data)
         
         logger.info(f"All data fetched, start perfoming steps for swap on Uniswap V3...")
-        
+        # return
         if all_tokens_to_approve:
             logger.info(f"Start batch multicall approve for {len(all_tokens_to_approve)} tokens")
             await self.make_one_multicall_erc20_spend_approval(all_tokens_to_approve)
@@ -301,7 +309,13 @@ class UniswapV3:
             transaction = await self.router_contract.functions.multicall(
                 all_multicall_data,
             ).build_transaction(tx_params)
-            return await self.client.send_transaction(transaction)
+
+            await self.client.send_transaction(transaction)
+            
+            end_time = time.perf_counter()
+            logger.success(f"Multicall swap for {len(swap_pairs)} pairs on Uniswap V3 finished in "
+                           f"{end_time - start_time:.2f} seconds")
+            
         except Exception as error:
             if 'execution reverted: STF' in str(error):
                 raise RuntimeError(f"Probably you don't have enough tokens for this swap! Error: {error}")

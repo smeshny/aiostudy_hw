@@ -4,6 +4,7 @@ import time
 from collections import defaultdict
 
 import eth_abi
+from web3.contract import AsyncContract
 
 from custom_logger import logger
 from client import Client
@@ -137,6 +138,30 @@ class Multicall3:
         token_erc20_nonce = self.client.w3.to_int(multicall3_response[2][1])
         
         return token_name_from_contract, token_version, token_erc20_nonce
+    
+    async def fetch_pools_data_from_factory(
+        self, token_a_address: str, token_b_address: str, possible_fees: list[int], factory_contract: AsyncContract
+        ) -> list[tuple[str, int]]:
+        fee_calls = []
+        for fee in possible_fees:
+            fee_call = factory_contract.encode_abi(
+                abi_element_identifier='getPool',
+                args=[token_a_address, token_b_address, fee]
+            )
+            fee_calls.append([factory_contract.address, False, fee_call])
+        
+        try:
+            multicall3_response = await self.multicall3_contract.functions.aggregate3(fee_calls).call()
+        except Exception as error:
+            raise RuntimeError(f'Error during multicall3 fetch pools data from factory: {error}')
+        
+        pools_data: list[tuple[str, int]] = []
+        for i, (success, pool_address) in enumerate(multicall3_response):
+            raw_pool_address = eth_abi.decode(['address'], pool_address)[0]
+            checksum_pool_address = self.client.w3.to_checksum_address(raw_pool_address)
+            pools_data.append((checksum_pool_address, possible_fees[i]))
+            
+        return pools_data
 
     # async def make_multiple_erc20_spend_approvals(self, tokens_to_approve_data: list[tuple[str, str, int]]):
     # '''

@@ -39,15 +39,15 @@ async def main() -> None:
     NETWORK_TO_WORK: str = 'Arbitrum'
     
     SWAP_PAIRS: list[SwapPair] = [
-        # SwapPair(from_token_name='ETH', to_token_name='USDT', from_amount=0.0001, slippage=1),
-        # SwapPair(from_token_name='ETH', to_token_name='DAI', from_amount=0.0001, slippage=1),
-        # SwapPair(from_token_name='ETH', to_token_name='USDC', from_amount=0.0001, slippage=1),
-        # SwapPair(from_token_name='ETH', to_token_name='USDC.e', from_amount=0.0001, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='USDT', from_amount=0.0001, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='DAI', from_amount=0.0001, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='USDC', from_amount=0.0001, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='USDC.e', from_amount=0.0001, slippage=1),
         
-        SwapPair(from_token_name='USDT', to_token_name='ETH', from_amount=0, slippage=1),
-        SwapPair(from_token_name='DAI', to_token_name='ETH', from_amount=0, slippage=1),
-        SwapPair(from_token_name='USDC', to_token_name='ETH', from_amount=0, slippage=1),
-        SwapPair(from_token_name='USDC.e', to_token_name='ETH', from_amount=0, slippage=1),
+        # SwapPair(from_token_name='USDT', to_token_name='ETH', from_amount=0, slippage=1),
+        # SwapPair(from_token_name='DAI', to_token_name='ETH', from_amount=0, slippage=1),
+        # SwapPair(from_token_name='USDC', to_token_name='ETH', from_amount=0, slippage=1),
+        # SwapPair(from_token_name='USDC.e', to_token_name='ETH', from_amount=0, slippage=1),
         
         # Add more SwapPair instances as needed
     ]
