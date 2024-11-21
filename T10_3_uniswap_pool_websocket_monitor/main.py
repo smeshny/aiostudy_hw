@@ -20,14 +20,17 @@ import asyncio
 from client import Client
 from settings import PRIVATE_KEY, PROXY, NETWORK_TO_WORK, ALCHEMY_WSS_URL
 
-from modules.dex.uniswap_v3 import UniswapV3, SwapPair
+from modules.websockets.uniswap_monitor import UniswapMonitor
 
 
 async def main() -> None:
     """
     Uniswap WebSocket monitor for pool events
     """
-
+    
+    UNISWAP_V3_POOL_ADDRESS = '0xC6962004f452bE9203591991D15f6b388e09E8D0' # ETH/USDC V3 pool
+    EVENTS_TO_LISTEN = ['Swap', 'Burn', 'Mint'] # Events to listen. Double check events names in the contract
+    
     client = Client(
         account_name="aiostudy", 
         network=NETWORK_TO_WORK,
@@ -36,10 +39,13 @@ async def main() -> None:
     )
     
     async with client:
-        uniswap_v3 = UniswapV3(client=client)
-        await uniswap_v3.multicall_swap(
-            swap_pairs=SWAP_PAIRS
-        )
+        uniswap_monitor = UniswapMonitor(
+            client=client,
+            wss_provider=ALCHEMY_WSS_URL,
+            pool_address=UNISWAP_V3_POOL_ADDRESS,
+            events_to_listen=EVENTS_TO_LISTEN,
+            )
+        await uniswap_monitor.monitor_pool()
 
 
 if __name__ == "__main__":
