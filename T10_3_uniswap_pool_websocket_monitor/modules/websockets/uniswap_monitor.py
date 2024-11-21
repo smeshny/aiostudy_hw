@@ -21,29 +21,29 @@ class UniswapMonitor:
         self.client = client
         self.alchemy_wss_url = wss_provider
         self.pool_address = pool_address
+        self.pool_contract = web3.AsyncWeb3().eth.contract(
+            abi=UNISWAP_V3_POOL_ABI,
+        )
         self.events_to_listen = events_to_listen
 
     async def get_topics_from_abi(self):
-        pool_contract = web3.AsyncWeb3().eth.contract(
-            abi=UNISWAP_V3_POOL_ABI
-        )
-        event_names = self.events_to_listen
         event_topic_mapping = {}
-        
         try:
-            for event_name in event_names:
-                event = getattr(pool_contract.events, event_name)()
+            for event_name in self.events_to_listen:
+                event = getattr(self.pool_contract.events, event_name)()
                 topic = web3.Web3.to_hex(event_abi_to_log_topic(event.abi))
                 event_topic_mapping[event_name] = topic
         except Exception as error:
             raise RuntimeError(f'Error getting topics from ABI: {error}')
 
-        # Log the mapping of events to topics
         logger.success(f'Topics {self.events_to_listen} successfully mapped:')
         for event_name, topic in event_topic_mapping.items():
             logger.success(f'Event: {event_name} -> Topic: {topic}')
             
         return list(event_topic_mapping.values())
+    
+    async def decode_event_data(self, event_data: dict):
+        pass
 
     async def monitor_pool(self):
         async with AsyncWeb3(WebSocketProvider(self.alchemy_wss_url)) as w3_wss:
@@ -51,7 +51,7 @@ class UniswapMonitor:
                 logger.success(f'Successfully connected to WSS provider')
             
             topics = await self.get_topics_from_abi()
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)
             subscription_args = {
                 "address": self.pool_address,
                 'topics': [topics]
