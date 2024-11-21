@@ -99,9 +99,9 @@ class Client:
         contract = self.get_contract(token_address)
         return await contract.functions.symbol().call()
 
-    def get_contract(self, contract_address: str, abi: dict = ERC20_ABI) -> AsyncContract:
+    def get_contract(self, contract_address: str = None, abi: dict = ERC20_ABI) -> AsyncContract:
         return self.w3.eth.contract(
-            address=AsyncWeb3.to_checksum_address(contract_address),
+            address=AsyncWeb3.to_checksum_address(contract_address) if contract_address else None,
             abi=abi
         )
         
