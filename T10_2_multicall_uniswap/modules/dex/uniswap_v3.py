@@ -4,7 +4,6 @@ import random
 from dataclasses import dataclass
 
 from eth_utils import to_canonical_address
-from eth_account.messages import encode_defunct
 from eth_account.messages import encode_typed_data
 
 from client import Client
@@ -44,13 +43,20 @@ class UniswapV3:
             contract_address=self.factory_address, abi=UNISWAP_V3_FACTORY_ABI
             )
         
+    # async def check_pool_and_return_fee(self, token_a_address: str, token_b_address: str) -> int:
+    #     possible_fees: list[int] = [100, 500, 2000, 2500, 3000, 5000, 10000]
+    #     for fee in possible_fees:
+    #         # todo: makemulticall3 fetch
+    #         pool_address = await self.factory_contract.functions.getPool(token_a_address, token_b_address, fee).call()
+    #         if pool_address != ZERO_ADDRESS:
+    #             return fee
+    #     raise RuntimeError(f"Can't find pool for tokens {token_a_address} and {token_b_address}")
+    
     async def check_pool_and_return_fee(self, token_a_address: str, token_b_address: str) -> int:
-        possible_fees: list[int] = [100, 500, 2000, 2500, 3000, 5000, 10000]
-        for fee in possible_fees:
-            pool_address = await self.factory_contract.functions.getPool(token_a_address, token_b_address, fee).call()
-            if pool_address != ZERO_ADDRESS:
-                return fee
-        raise RuntimeError(f"Can't find pool for tokens {token_a_address} and {token_b_address}")
+        possible_fees: list[int] = [100, 200, 300, 400, 500, 1000, 2000, 2500, 3000, 5000, 10000]
+        
+        fetched_pools_data = await self.multicall3.fetch_pools_data_from_factory(
+            token_a_address, token_b_address, possible_fees, self.factory_contract)
     
     async def get_path(self, token_a_address: str, token_b_address: str) -> bytes:
         fee = await self.check_pool_and_return_fee(token_a_address, token_b_address)
@@ -153,25 +159,18 @@ class UniswapV3:
 
     async def make_one_multicall_erc20_spend_approval(self, tokens_to_approve: list[tuple[str, int]]):
         approval_calls = []
-        
-        
+        # todo: make this asycnio gather
         for token_to_approve in tokens_to_approve:
             deadline = int(time.time()) + 360
             token_address, amount_in_wei = token_to_approve
             
-            token_contract = self.client.get_contract(contract_address=token_address)
-            name = await token_contract.functions.name().call()
-            try:
-                version = await token_contract.functions.version().call()
-            except Exception as error:
-                logger.error(f"Error getting version for {name} token: {error}")
-                version = "1"
-            nonce_erc20 = await token_contract.functions.nonces(self.client.address).call()
+            token_params_multicall = await self.multicall3.get_erc20_token_parameters_for_permit(token_address)
+            token_name_from_contract, token_version, token_erc20_nonce = token_params_multicall
             
             # Define the EIP-712 domain
             domain = {
-                "name": name,
-                "version": version,
+                "name": token_name_from_contract,
+                "version": token_version,
                 "chainId": self.client.network.chain_id,
                 "verifyingContract": token_address
             }
@@ -204,7 +203,7 @@ class UniswapV3:
                     "owner": self.client.address,
                     "spender": self.router_address,
                     "value": amount_in_wei,
-                    "nonce": nonce_erc20,
+                    "nonce": token_erc20_nonce,
                     "deadline": deadline,
                 },
             }
@@ -280,7 +279,7 @@ class UniswapV3:
             )
             all_multicall_data.append(tx_additional_data)
         
-        logger.info(f"Start perfoming multicall swap on Uniswap V3...")
+        logger.info(f"All data fetched, start perfoming steps for swap on Uniswap V3...")
         
         if all_tokens_to_approve:
             logger.info(f"Start batch multicall approve for {len(all_tokens_to_approve)} tokens")
@@ -292,6 +291,8 @@ class UniswapV3:
         #     await self.multicall3.make_multiple_erc20_spend_approvals(all_tokens_to_approve)
         #########################################################################################
 
+        logger.info(f"Start multicall swap on Uniswap V3...")
+        
         try:
             tx_params = (await self.client.prepare_transaction()) | {
                 'value': total_value_wei,

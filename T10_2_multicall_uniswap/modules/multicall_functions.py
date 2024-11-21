@@ -3,6 +3,8 @@ import json
 import time
 from collections import defaultdict
 
+import eth_abi
+
 from custom_logger import logger
 from client import Client
 from config import TOKENS_PER_CHAIN, CONTRACTS_PER_CHAIN, MULTICALL3_ABI
@@ -99,6 +101,42 @@ class Multicall3:
         logger.success(f'Stats for {len(wallets_to_check)} wallets in {self.client.network.name} succesfully fetched:')
         logger.debug(f'Execution time: {elapsed_time:.2f} seconds')
         logger.info(json.dumps(wallets_stats, indent=4))
+
+    async def get_erc20_token_parameters_for_permit(self, token_address: str):
+        parameters_calls = []
+        token_contract = self.client.get_contract(contract_address=token_address)
+        
+        erc20_name_call = token_contract.encode_abi(
+            abi_element_identifier='name',
+        )
+        parameters_calls.append([token_address, False, erc20_name_call])
+        
+        erc_20_version_call = token_contract.encode_abi(
+            abi_element_identifier='version',
+        )
+        parameters_calls.append([token_address, True, erc_20_version_call])
+        
+        erc20_nonce_call = token_contract.encode_abi(
+            abi_element_identifier='nonces',
+            args=[self.client.address]
+        )
+        parameters_calls.append([token_address, False, erc20_nonce_call])
+        
+        try:
+            multicall3_response = await self.multicall3_contract.functions.aggregate3(parameters_calls).call()
+        except Exception as error:
+            raise RuntimeError(f'Error during multicall3 fetch erc20 token parameters for permit: {error}')
+        
+        token_name_from_contract = eth_abi.decode(['string'], multicall3_response[0][1])[0]
+
+        if multicall3_response[1][0]:  # if success is True and token have version parameter in contract
+            token_version = eth_abi.decode(['string'], multicall3_response[1][1])[0]
+        else:
+            token_version = "1"  # if token have no version parameter in contract -> set version to default "1"
+            
+        token_erc20_nonce = self.client.w3.to_int(multicall3_response[2][1])
+        
+        return token_name_from_contract, token_version, token_erc20_nonce
 
     # async def make_multiple_erc20_spend_approvals(self, tokens_to_approve_data: list[tuple[str, str, int]]):
     # '''
