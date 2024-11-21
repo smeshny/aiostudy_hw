@@ -32,22 +32,36 @@ from modules.dex.uniswap_v3 import UniswapV3, SwapPair
 
 async def main() -> None:
     """
-    Uniswap v3 multicall swap for 2 pairs e.g. ETH->USDT and ETH->DAI
-    Multicall swap perform in single transaction
+    Execute multiple token swaps on Uniswap V3 within a single transaction using Multicall.
+    For TOKENS -> ETH direction doing one additional multicall approve transaction for spender.
+    
+    Optimizations:
+    Multicall3 contract is used for fetching pools data from factory in one call.
+    Also multicall3 is used for fetching erc20 tokens parameters for permit signature in one call.
     """
     
     NETWORK_TO_WORK: str = 'Arbitrum'
     
     SWAP_PAIRS: list[SwapPair] = [
-        SwapPair(from_token_name='ETH', to_token_name='USDT', from_amount=0.0001, slippage=1),
-        SwapPair(from_token_name='ETH', to_token_name='DAI', from_amount=0.0001, slippage=1),
-        SwapPair(from_token_name='ETH', to_token_name='USDC', from_amount=0.0001, slippage=1),
-        SwapPair(from_token_name='ETH', to_token_name='USDC.e', from_amount=0.0001, slippage=1),
+        # ETH -> TOKENS
+        SwapPair(from_token_name='ETH', to_token_name='USDT', from_amount=0.00005, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='DAI', from_amount=0.00005, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='USDC', from_amount=0.00005, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='USDC.e', from_amount=0.00005, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='WBTC', from_amount=0.00005, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='LINK', from_amount=0.00005, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='ARB', from_amount=0.00005, slippage=1),
+        SwapPair(from_token_name='ETH', to_token_name='UNI', from_amount=0.00005, slippage=1),
         
+        # TOKENS -> ETH
         # SwapPair(from_token_name='USDT', to_token_name='ETH', from_amount=0, slippage=1),
         # SwapPair(from_token_name='DAI', to_token_name='ETH', from_amount=0, slippage=1),
         # SwapPair(from_token_name='USDC', to_token_name='ETH', from_amount=0, slippage=1),
         # SwapPair(from_token_name='USDC.e', to_token_name='ETH', from_amount=0, slippage=1),
+        # SwapPair(from_token_name='WBTC', to_token_name='ETH', from_amount=0, slippage=1),
+        # SwapPair(from_token_name='LINK', to_token_name='ETH', from_amount=0, slippage=1),
+        # SwapPair(from_token_name='ARB', to_token_name='ETH', from_amount=0, slippage=1),
+        # SwapPair(from_token_name='UNI', to_token_name='ETH', from_amount=0, slippage=1),
         
         # Add more SwapPair instances as needed
     ]

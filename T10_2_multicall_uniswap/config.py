@@ -21,7 +21,10 @@ TOKENS_PER_CHAIN = {
         'USDC.e'            : "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
         'DAI'               : "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
         'OX'                : "0xba0Dda8762C24dA9487f5FA026a9B64b695A07Ea",
-        'ADP'               : "0xF59d19656ac10670Bcc02B28dBE831608b2bA98E"
+        'ADP'               : "0xF59d19656ac10670Bcc02B28dBE831608b2bA98E",
+        'WBTC'              : "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
+        'LINK'              : "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
+        'UNI'               : "0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0",
     },
     'Arbitrum Nova':{
         "ETH"               : "0x722E8BdD2ce80A4422E880164f2079488e115365",

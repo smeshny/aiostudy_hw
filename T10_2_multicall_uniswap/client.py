@@ -116,6 +116,7 @@ class Client:
 
         unit_name = {
             18: 'ether',
+            8: 'gwei',
             6: 'mwei'
         }[decimals]
 
@@ -125,6 +126,7 @@ class Client:
 
         unit_name = {
             18: 'ether',
+            8: 'gwei',
             6: 'mwei'
         }[decimals]
 
