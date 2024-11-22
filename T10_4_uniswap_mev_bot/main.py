@@ -39,7 +39,6 @@
 # Найден спред: цена USDT/ETH выше на 2% чем цена DAI/ETH.
 
 
-
 import asyncio
 
 from client import Client
@@ -51,6 +50,10 @@ from modules.websockets.uniswap_mev_bot import UniswapMevBot
 async def main() -> None:
     """
     Arbitrage MEV bot for Uniswap V3 pools ETH/USDT and ETH/DAI
+    Connects via WebSocket to track price changes and identify arbitrage opportunities.
+
+    Working only with Alchemy WebSocket provider
+    https://docs.alchemy.com/docs/websocket-subscriptions
     """
     
     # Arbitrum ETH/USDT V3 pool
@@ -59,6 +62,7 @@ async def main() -> None:
     # Arbitrum ETH/DAI V3 pool
     # https://app.uniswap.org/explore/pools/arbitrum/0xA961F0473dA4864C5eD28e00FcC53a3AAb056c1b
     ETH_DAI_UNISWAP_V3_POOL_ADDRESS = '0xA961F0473dA4864C5eD28e00FcC53a3AAb056c1b'
+    SPREAD_PERCENTAGE_THRESHOLD = 0.2 # 0.2 = 0.2%, 1 = 1%, 2 = 2%
 
     
     client = Client(
@@ -72,9 +76,10 @@ async def main() -> None:
         uniswap_mev_bot = UniswapMevBot(
             client=client,
             wss_provider=ALCHEMY_WSS_URL,
-            pool_address=ETH_USDT_UNISWAP_V3_POOL_ADDRESS,
-            events_to_listen=['Swap'],
-            )
+            eth_usdt_pool_address=ETH_USDT_UNISWAP_V3_POOL_ADDRESS,
+            eth_dai_pool_address=ETH_DAI_UNISWAP_V3_POOL_ADDRESS,
+            spread_percentage_threshold=SPREAD_PERCENTAGE_THRESHOLD,
+        )
         await uniswap_mev_bot.monitor_pools()
 
 
